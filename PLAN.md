@@ -1,6 +1,6 @@
 # Activity tracker + nagger: plan
 
-Last updated: 2026-11-03_120113_1793703673
+Last updated: 2026-11-03_121237_1793704357
 
 Working name: `activity_nagger` (crate prefix `an-`). A real name is still to be
 chosen; the working name is used everywhere so a later rename is a
@@ -202,6 +202,14 @@ Verified here:
   (`activity_nagger_0.1.0_x64-setup.exe`, 3.6 MiB). Not installed.
 - `npm run ext:build` / `ext:package`: both manifests and both store zips
   (zip integrity checked).
+- Extension in real browsers (`tools/ext_e2e.ps1`, 2026-11-03_121237_1793704357): headless Edge
+  156 (`--load-extension`, tabs driven over DevTools) and Firefox 159 (via
+  `web-ext run`, temporary add-on), each with a throwaway profile. Both paired
+  with a fresh code, flushed queued tab events (8 and 2 stored) and sent a
+  heartbeat the app lists (`edge 0.1.0`, `firefox 0.1.0`). PASS for both.
+- CI Windows job: every step of `.github/workflows/ci.yml` run locally in
+  order (`npm ci` x3, UI build/check, extension check/build, fmt, clippy
+  `-D warnings`, tests): all exit 0.
 - Real desktop (read-only probe): foreground exe/title/fullscreen, Steam
   running app id, `SHQueryUserNotificationState`; the Steam manifest lookup
   finds the running game's name in the main library.
@@ -210,10 +218,13 @@ Not verified (needs another machine, an account or the user):
 - The Linux backend on a real Linux desktop (no Linux machine; WSL is not
   available here). Parsers are unit-tested; X11/Wayland/logind code only
   compiles.
-- The extension in a real browser (load unpacked, pair, browse).
+- Pairing typed by hand in the extension popup, and web time accruing while
+  a browser is really in front (the hidden desktop has no foreground window;
+  the web segmenter's foreground logic is unit-tested).
 - The tray menu clicked by hand (tray creation itself is logged).
 - An exclusive-fullscreen game during a nag (deferral logic is unit-tested).
-- CI and release workflows (no GitHub remote yet), signing with a real
+- CI and release workflows on GitHub (no remote yet; the Windows job's steps
+  pass locally, the Linux job cannot run here), signing with a real
   certificate, store submissions.
 
 Milestone coverage:

@@ -76,3 +76,14 @@ hidden desktop `GetForegroundWindow` sees no window, so `/state` shows no app;
 use `cargo run -p an-platform --example probe` to check foreground detection.
 `run_hidden.ps1` does not work inside `Start-Job`; run it in the foreground and
 put API calls in the job instead.
+
+### Extension end to end
+
+```powershell
+npm run ext:build; npm run tauri -- build --debug --no-bundle
+tools\ext_e2e.ps1 -Browser edge
+tools\ext_e2e.ps1 -Browser firefox
+```
+
+Branded Chrome ignores `--load-extension`; the script uses Edge for the
+Chromium build and `web-ext` for Firefox. Set `AN_PYTHON` to the venv Python.

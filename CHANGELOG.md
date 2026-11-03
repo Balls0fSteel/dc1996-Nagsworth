@@ -2,6 +2,20 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-03_121237_1793704357: Extension verified in real browsers, CI steps run locally
+
+- Added `tools/ext_e2e.ps1` (+ `tools/seed_ext.py`): runs the debug app, a
+  local page server and a headless browser with a throwaway profile on the
+  hidden desktop; the test copy of the extension pairs itself through
+  `/pair`. Edge 156 and Firefox 159 both PASS: tab events flushed and
+  stored, heartbeat listed by `/state`.
+- `web-ext` added as an extension devDependency for the Firefox run.
+- Ran the CI Windows job's steps locally in order; all pass.
+- Notes: branded Chrome 156 ignores `--load-extension`, so the Chromium run
+  uses Edge with `--disable-features=DisableLoadExtensionCommandLineSwitch`.
+  Still unverified: the Linux backend on Linux, GitHub-hosted CI, clicking
+  the tray menu, a real exclusive-fullscreen game, signing.
+
 ## 2026-11-03_120113_1793703673: M2-M6 completed, `tauri dev` verified
 
 - Verified the M0 acceptance item left open: `npm run tauri dev` (run on the
