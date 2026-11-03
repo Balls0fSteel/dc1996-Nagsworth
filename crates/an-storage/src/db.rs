@@ -200,6 +200,15 @@ impl Db {
         self.app(id)?.ok_or(StorageError::NotFound("app"))
     }
 
+    /// Sets a display name unless the user (or an earlier lookup) set one.
+    pub fn set_display_name_if_empty(&mut self, id: i64, name: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE apps SET display_name = ?2 WHERE id = ?1 AND display_name IS NULL",
+            params![id, name],
+        )?;
+        Ok(())
+    }
+
     pub fn categories(&self) -> Result<Vec<Category>> {
         let mut stmt = self
             .conn

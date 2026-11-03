@@ -132,6 +132,16 @@ impl Runtime {
             }
         }
 
+        // Built-in game list plus the user's known_games.toml.
+        let known = data_dir.join("known_games.toml");
+        let categorizer = match an_tracker::gaming::KnownExeList::builtin_and_file(&known) {
+            Ok(list) => Categorizer::new(list),
+            Err(e) => {
+                tracing::warn!("ignoring known games file: {e}");
+                Categorizer::default()
+            }
+        };
+
         // Tracking: sampler -> segmenter -> storage + bus + activity watch.
         let (activity_tx, activity_rx) = watch::channel(Activity::default());
         let (sample_tx, sample_rx) = mpsc::channel(64);
@@ -148,7 +158,7 @@ impl Runtime {
                 bus: bus.clone(),
                 clock: clock.clone(),
                 platform: platform.clone(),
-                categorizer: Categorizer::default(),
+                categorizer,
                 activity: activity_tx,
             }
             .run(sample_rx),
@@ -215,6 +225,7 @@ impl Runtime {
             activity: activity_rx.clone(),
             ext_tx,
             ext_clients: Arc::default(),
+            backup_dir: data_dir.join("backups"),
         };
         let api_addr = match rt.block_on(an_api::serve(api_state, &cfg.api.bind, cfg.api.port)) {
             Ok(addr) => Some(addr),

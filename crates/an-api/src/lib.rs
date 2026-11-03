@@ -9,6 +9,7 @@ mod routes;
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 
 use an_core::{Activity, Clock, Config, EventBus, LocalDay, Timestamp};
@@ -44,6 +45,8 @@ pub struct ApiState {
     pub ext_tx: mpsc::Sender<ExtEvent>,
     /// Last heartbeat per extension client id.
     pub ext_clients: Arc<Mutex<HashMap<String, ExtClient>>>,
+    /// Where `POST /backup` writes database copies.
+    pub backup_dir: PathBuf,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]

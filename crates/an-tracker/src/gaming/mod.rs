@@ -1,6 +1,18 @@
 //! Game detection without touching game processes: Steam's own registry
 //! state, launcher install paths and a list of well-known game executables.
 
+pub mod steam;
+
+/// Lower-cased exe name without a `.exe` suffix, so Windows and Linux names
+/// compare equal (`Firefox.exe` and `firefox`).
+pub fn exe_stem(name: &str) -> String {
+    let lower = name.to_ascii_lowercase();
+    lower
+        .strip_suffix(".exe")
+        .map(str::to_string)
+        .unwrap_or(lower)
+}
+
 use an_core::ProcessInfo;
 use an_platform::SteamInfo;
 
@@ -59,7 +71,7 @@ impl LauncherPathDetector {
         // The launchers themselves live next to their games; they are not games.
         if KnownExeList::LAUNCHERS
             .iter()
-            .any(|l| process.exe_name.eq_ignore_ascii_case(l))
+            .any(|l| exe_stem(l) == exe_stem(&process.exe_name))
         {
             return false;
         }
@@ -111,24 +123,46 @@ impl KnownExeList {
         Self::new(Self::BUILTIN.iter().map(|s| s.to_string()))
     }
 
-    /// Entries are exe names; `exe@fragment` also requires the path or
-    /// title to contain `fragment` (for shared runtimes like javaw.exe).
+    /// Entries are exe names; `exe@fragment` also requires the exe path to
+    /// contain `fragment` (for shared runtimes like javaw.exe).
     pub fn new(exes: impl IntoIterator<Item = String>) -> Self {
         Self {
             exes: exes.into_iter().map(|e| e.to_ascii_lowercase()).collect(),
         }
     }
 
+    /// The built-in list plus `games = [...]` from a user file
+    /// (`known_games.toml` in the data directory). A missing file is fine.
+    pub fn builtin_and_file(path: &std::path::Path) -> Result<Self, String> {
+        #[derive(serde::Deserialize)]
+        struct File {
+            #[serde(default)]
+            games: Vec<String>,
+        }
+        let mut list = Self::builtin();
+        match std::fs::read_to_string(path) {
+            Ok(text) => {
+                let file: File =
+                    toml::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+                list.exes
+                    .extend(file.games.into_iter().map(|g| g.to_ascii_lowercase()));
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(format!("{}: {e}", path.display())),
+        }
+        Ok(list)
+    }
+
     pub fn detect(&self, process: &ProcessInfo) -> bool {
-        let exe = process.exe_name.to_ascii_lowercase();
+        let exe = exe_stem(&process.exe_name);
         let path = process
             .exe_path
             .as_deref()
             .unwrap_or_default()
             .to_ascii_lowercase();
         self.exes.iter().any(|entry| match entry.split_once('@') {
-            Some((name, fragment)) => *name == exe && path.contains(fragment),
-            None => *entry == exe,
+            Some((name, fragment)) => exe_stem(name) == exe && path.contains(fragment),
+            None => exe_stem(entry) == exe,
         })
     }
 }
@@ -187,5 +221,15 @@ mod tests {
             "C:\\Users\\x\\.minecraft\\runtime\\javaw.exe"
         )));
         assert!(!known.detect(&p("javaw.exe", "C:\\jdk\\bin\\javaw.exe")));
+
+        let file = std::env::temp_dir().join(format!("an-known-{}.toml", std::process::id()));
+        std::fs::write(&file, "games = [\"MyIndie.exe\"]\n").unwrap();
+        let user = KnownExeList::builtin_and_file(&file).unwrap();
+        assert!(user.detect(&p("myindie.exe", "C:\\x\\MyIndie.exe")));
+        assert!(user.detect(&p("cs2.exe", "X:\\cs2.exe")));
+        std::fs::write(&file, "games = 3").unwrap();
+        assert!(KnownExeList::builtin_and_file(&file).is_err());
+        let _ = std::fs::remove_file(&file);
+        assert!(KnownExeList::builtin_and_file(std::path::Path::new("nope/x.toml")).is_ok());
     }
 }

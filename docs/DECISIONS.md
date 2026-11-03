@@ -21,3 +21,8 @@ since (D9 onward).
 | D14 | Escalation pauses while the user rests (locked, idle under `pause`), so stepping away never escalates a nag to a lock. |
 | D15 | Nag windows read state through Tauri commands/events; the dashboard uses the HTTP API with the token from `get_api_info`. One data path for the dashboard and the extension. |
 | D16 | The extension bundles each script as a self-contained IIFE so Chrome's service worker and Firefox's background scripts load the same file without module support. |
+| D17 | Linux: Wayland protocols first (ext-idle-notify, wlr-foreign-toplevel), X11/XWayland as fallback, logind for session events and lock. No GNOME Shell extension; GNOME Wayland tracks X clients only. |
+| D18 | Exe names are compared by stem (lower case, no `.exe`), so one set of lists works on Windows and Linux. |
+| D19 | During exclusive fullscreen, overlays are deferred (beep + tray tooltip) rather than forced on top, in line with D6. |
+| D20 | Signing details stay out of `tauri.conf.json`; CI merges a generated `tauri.signing.json` when certificate secrets exist. |
+| D21 | Users extend game detection with `known_games.toml` in the data directory; Steam games are named from `appmanifest_<id>.acf`. |

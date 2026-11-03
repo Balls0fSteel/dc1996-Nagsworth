@@ -54,6 +54,30 @@ pub struct TimelineEntry {
     pub category_kind: Option<CategoryKind>,
 }
 
+/// One segment with names resolved, for exports.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportSegment {
+    pub day: LocalDay,
+    pub start: Timestamp,
+    pub end: Timestamp,
+    pub kind: SegmentKind,
+    pub exe_name: Option<String>,
+    pub display_name: Option<String>,
+    pub category: Option<String>,
+    pub title: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportVisit {
+    pub day: LocalDay,
+    pub start: Timestamp,
+    pub end: Timestamp,
+    pub browser: String,
+    pub host: String,
+    pub url: Option<String>,
+    pub title: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HostUsage {
     pub host: String,
@@ -192,6 +216,60 @@ impl Db {
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    pub fn export_segments(&self, from: LocalDay, to: LocalDay) -> Result<Vec<ExportSegment>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT s.local_day, s.start_ts, s.end_ts, s.kind, a.exe_name, a.display_name, c.name, t.text
+             FROM segments s
+             LEFT JOIN apps a ON a.id = s.app_id
+             LEFT JOIN categories c ON c.id = a.category_id
+             LEFT JOIN titles t ON t.id = s.title_id
+             WHERE s.local_day BETWEEN ?1 AND ?2 ORDER BY s.start_ts",
+        )?;
+        let rows = stmt.query_map([from.to_string(), to.to_string()], |r| {
+            let kind: String = r.get(3)?;
+            Ok(ExportSegment {
+                day: day(r.get(0)?)?,
+                start: r.get(1)?,
+                end: r.get(2)?,
+                kind: kind.parse().unwrap_or(SegmentKind::Active),
+                exe_name: r.get(4)?,
+                display_name: r.get(5)?,
+                category: r.get(6)?,
+                title: r.get(7)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    pub fn export_visits(&self, from: LocalDay, to: LocalDay) -> Result<Vec<ExportVisit>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT local_day, start_ts, end_ts, browser, host, url, title FROM web_visits
+             WHERE local_day BETWEEN ?1 AND ?2 ORDER BY start_ts",
+        )?;
+        let rows = stmt.query_map([from.to_string(), to.to_string()], |r| {
+            Ok(ExportVisit {
+                day: day(r.get(0)?)?,
+                start: r.get(1)?,
+                end: r.get(2)?,
+                browser: r.get(3)?,
+                host: r.get(4)?,
+                url: r.get(5)?,
+                title: r.get(6)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Writes a consistent copy of the database to `path` (`VACUUM INTO`).
+    pub fn backup_to(&self, path: &std::path::Path) -> Result<()> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| crate::StorageError::Io(e.to_string()))?;
+        }
+        self.conn
+            .execute("VACUUM INTO ?1", [path.to_string_lossy().as_ref()])?;
+        Ok(())
     }
 
     /// Active time of apps whose category has `kind` on `day`.

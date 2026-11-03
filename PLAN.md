@@ -1,6 +1,6 @@
 # Activity tracker + nagger: plan
 
-Last updated: 2026-11-03_113806_1793702286
+Last updated: 2026-11-03_120113_1793703673
 
 Working name: `activity_nagger` (crate prefix `an-`). A real name is still to be
 chosen; the working name is used everywhere so a later rename is a
@@ -180,67 +180,78 @@ trigger = { kind = "schedule", windows = ["23:00-06:00"] }
 escalation = [ { after = "0s", level = "overlay" } ]
 ```
 
-## Current status (2026-11-03_113806_1793702286)
+## Current status (2026-11-03_120113_1793703673)
 
-M0 is complete, and most of M1-M4 came with it because the pure-logic
-pieces were cheap to finish properly. Everything below is built and tested,
-and the app was run on the hidden desktop (dashboard, break overlay on both
-monitors, API smoke test).
+All milestones M0-M6 are implemented. What could be run on this Windows PC
+was run; what needs another machine or an account is listed under "Not
+verified".
 
-Acceptance for M0, checked:
-- `cargo build --workspace`, `cargo test --workspace` (53 tests), clippy
-  (`--all-targets`) and `cargo fmt --check` clean; `npm run ui:check` and
-  `npm run ext:check` clean.
-- The app starts with tray, dashboard and single instance; `/v1/health`
-  answers, `/v1/state` without a token is 401, with it shows the live
-  activity. Foreground detection checked on the real desktop with
-  `cargo run -p an-platform --example probe` (exe, title, fullscreen, Steam
-  running app id).
-- `npm run ext:build` emits `extension/dist/chrome` and `extension/dist/firefox`.
-- Not checked by hand: `npm run tauri dev` with the Vite dev server (the
-  `tauri build --debug --no-bundle` binary was run instead), the tray menu
-  itself (tests run with `--no-tray`), loading the extension into a real
-  browser.
+Verified here:
+- `cargo test --workspace` (59 tests), `cargo clippy --workspace
+  --all-targets -D warnings`, `cargo fmt --check`, `npm run ui:check`,
+  `npm run ext:check`: clean. Linux backend: `cargo +1.90.0 clippy -p
+  an-platform --target x86_64-unknown-linux-gnu -D warnings` clean.
+- `npm run tauri dev` (run hidden): Vite dev server, app build, log line
+  `tray icon created`, dashboard rendered from the dev server with live rule
+  progress.
+- Debug and release builds run hidden: `/v1/health` public, `/v1/state` 401
+  without a token, pairing, idempotent extension events, break start opens
+  overlays on both monitors (1936x1089 and 3856x2169 physical, so mixed-DPI
+  placement works), backup writes a database copy, CSV export downloads.
+- `npm run tauri build` produced the NSIS installer
+  (`activity_nagger_0.1.0_x64-setup.exe`, 3.6 MiB). Not installed.
+- `npm run ext:build` / `ext:package`: both manifests and both store zips
+  (zip integrity checked).
+- Real desktop (read-only probe): foreground exe/title/fullscreen, Steam
+  running app id, `SHQueryUserNotificationState`; the Steam manifest lookup
+  finds the running game's name in the main library.
+
+Not verified (needs another machine, an account or the user):
+- The Linux backend on a real Linux desktop (no Linux machine; WSL is not
+  available here). Parsers are unit-tested; X11/Wayland/logind code only
+  compiles.
+- The extension in a real browser (load unpacked, pair, browse).
+- The tray menu clicked by hand (tray creation itself is logged).
+- An exclusive-fullscreen game during a nag (deferral logic is unit-tested).
+- CI and release workflows (no GitHub remote yet), signing with a real
+  certificate, store submissions.
 
 Milestone coverage:
+- **M0 Scaffold**: done, acceptance items above.
 - **M1 Tracking**: done. Idle (backdated), lock and sleep gaps, WTS session
-  + power events on a message-only window, UWP via ApplicationFrameHost child
-  windows, package family names, daily totals, timeline and per-app
-  dashboard, retention pruning, day split at `day_start`.
-- **M2 Gaming**: mostly done. Steam `RunningAppID` + `steamapps\common`,
-  launcher path heuristics, built-in known-exe list, categorization UI (apps
-  table, custom categories), category stats. Missing: `appmanifest_*.acf`
-  game names, user-editable `known_games.toml`.
-- **M3 Rules + nags**: done. Engine with interval / daily_total /
-  continuous / schedule, escalation, snooze limits, skip, start break,
-  reading mode, counters persisted across restarts; toast and per-monitor
-  overlay windows; `lock` via `LockWorkStation`; TOML rule editor with
+  and power events, UWP resolution, package family names, daily totals,
+  timeline and per-app dashboard, retention pruning, day split.
+- **M2 Gaming**: done. Steam `RunningAppID` + `steamapps\common`, Steam
+  names from `appmanifest_<id>.acf` across library folders, launcher path
+  heuristics, built-in list plus user `known_games.toml`, categorization UI,
+  category stats.
+- **M3 Rules + nags**: done. Four trigger kinds, escalation, snooze limits,
+  skip, start break, reading mode, persisted counters; toast and
+  per-monitor overlays; `lock` via `LockWorkStation`; TOML rule editor with
   validation and hot reload; nag history.
-- **M4 Extension**: done except store packaging. Pairing flow, queue with
-  backoff, heartbeat, `WebSegmenter`, web stats page, incognito opt-in.
-- **M5 Linux**, **M6 Polish**: not started (`linux.rs` is a stub).
+- **M4 Extension**: done. Pairing, persistent queue with backoff,
+  heartbeat, `WebSegmenter`, web stats page, incognito opt-in; Chrome and
+  Firefox store zips (`npm run ext:package`).
+- **M5 Linux**: done (unverified on Linux). X11 via x11rb + MIT-SCREEN-SAVER,
+  Wayland via `ext-idle-notify-v1` + `wlr-foreign-toplevel-management`,
+  logind Lock/Unlock/PrepareForSleep and `Session.Lock`, XDG autostart,
+  Steam `registry.vdf`; `.deb` + AppImage bundle config.
+- **M6 Polish**: done. Autostart toggle, NSIS installer, CI workflow
+  (Windows + Linux), release workflow with optional signing
+  (docs/RELEASING.md), CSV/JSON export, database backup, mixed-DPI overlay
+  check, exclusive-fullscreen deferral (beep + tray tooltip).
 
 ## Next steps
 
-1. Try it for real: `npm run tauri dev`, check the tray menu, load the
-   extension in Chrome and Firefox and pair it, live with the defaults for a
-   few days and tune `min_segment_ms`, `idle_after_s` and the rules.
-2. Exclusive-fullscreen handling for overlays (see risks): detect via
-   `is_fullscreen` + `SHQueryUserNotificationState`, fall back to a sound and
-   tray notice, re-raise when the game loses the foreground.
-3. M2 leftovers: Steam `appmanifest_*.acf` names as display names; a
-   `known_games.toml` in the data directory merged with the built-in list.
-4. Dashboard: week/month views (daily stacked bars from `/stats/daily`),
-   per-rule enable toggle, autostart toggle (`Platform::set_autostart`).
-5. M6: NSIS installer check, CI (Windows build + tests, `ui:check`,
-   `ext:check`), code signing, DB backup/export.
-
-## Later milestones
-
-- **M5 Linux**: `LinuxPlatform` (X11 via `x11rb` + XScreenSaver idle; Wayland via
-  `ext-idle-notify-v1` + foreign-toplevel/portal), logind lock via D-Bus, AppImage/deb.
-- **M6 Polish**: NSIS installer, code signing, CI, DB backup/export, high-DPI
-  overlay checks, extension store packaging.
+1. Use it for a few days: load the extension, pair it, tune
+   `min_segment_ms`, `idle_after_s` and the rules.
+2. Push to GitHub and let CI run; fix anything the Linux job finds.
+3. Run it on a Linux desktop (X11 and a wlroots compositor) and fix what the
+   untested backend gets wrong.
+4. Choose the product name, then get a code signing certificate and submit
+   the extension to the stores (docs/RELEASING.md).
+5. Backlog items: week/month charts, per-rule toggle, KDE Wayland window
+   tracking (docs/BACKLOG.md).
 
 ## Risks and open questions
 
@@ -252,10 +263,9 @@ Milestone coverage:
 - **Idle and gamepads**: `GetLastInputInfo` ignores XInput; mitigated by
   `idle_policy = ignore` for games, later an optional `XInputGetState` poll.
 - **Overlays vs exclusive fullscreen**: always-on-top windows cannot cover
-  exclusive-fullscreen D3D. Detect via window rect == monitor rect without
-  caption/thick frame and `SHQueryUserNotificationState`; degrade to sound +
-  tray notice and re-raise when the game loses foreground. Never use
-  `SetForegroundWindow` tricks.
+  exclusive-fullscreen D3D. Implemented: `SHQueryUserNotificationState`
+  defers overlays with a beep and a tray tooltip until the game leaves
+  exclusive mode. Never use `SetForegroundWindow` tricks.
 - **Tauri 2**: keep Tauri's runtime separate from the tracking runtime and
   cross only via channels in `nag_bridge.rs`; Per-Monitor V2 DPI means
   physical pixels when comparing rects.

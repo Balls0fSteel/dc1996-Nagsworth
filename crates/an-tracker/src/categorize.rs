@@ -4,7 +4,7 @@
 use an_core::{CategoryKind, ProcessInfo};
 use an_platform::SteamInfo;
 
-use crate::gaming::{KnownExeList, LauncherPathDetector, SteamDetector};
+use crate::gaming::{KnownExeList, LauncherPathDetector, SteamDetector, exe_stem};
 
 pub const BROWSERS: &[&str] = &[
     "chrome.exe",
@@ -20,6 +20,13 @@ pub const BROWSERS: &[&str] = &[
     "zen.exe",
     "arc.exe",
     "chromium.exe",
+    // Linux binary names.
+    "firefox-bin",
+    "google-chrome",
+    "chromium-browser",
+    "brave-browser",
+    "microsoft-edge",
+    "vivaldi-bin",
 ];
 
 const WORK: &[&str] = &[
@@ -58,20 +65,21 @@ const WORK: &[&str] = &[
 
 /// `is_browser` for an exe name.
 pub fn is_browser(exe_name: &str) -> bool {
-    BROWSERS.iter().any(|b| exe_name.eq_ignore_ascii_case(b))
+    let exe = exe_stem(exe_name);
+    BROWSERS.iter().any(|b| exe_stem(b) == exe)
 }
 
 /// Short browser family name for an exe, matching what the extension reports.
 pub fn browser_family(exe_name: &str) -> Option<&'static str> {
-    let exe = exe_name.to_ascii_lowercase();
+    let exe = exe_stem(exe_name);
     Some(match exe.as_str() {
-        "chrome.exe" | "chromium.exe" => "chrome",
-        "msedge.exe" => "edge",
-        "firefox.exe" | "librewolf.exe" | "waterfox.exe" | "floorp.exe" | "zen.exe" => "firefox",
-        "brave.exe" => "brave",
-        "opera.exe" | "opera_gx.exe" => "opera",
-        "vivaldi.exe" => "vivaldi",
-        "arc.exe" => "arc",
+        "chrome" | "chromium" | "google-chrome" | "chromium-browser" => "chrome",
+        "msedge" | "microsoft-edge" => "edge",
+        "firefox" | "firefox-bin" | "librewolf" | "waterfox" | "floorp" | "zen" => "firefox",
+        "brave" | "brave-browser" => "brave",
+        "opera" | "opera_gx" => "opera",
+        "vivaldi" | "vivaldi-bin" => "vivaldi",
+        "arc" => "arc",
         _ => return None,
     })
 }
@@ -107,7 +115,7 @@ impl Categorizer {
         let exe = process.exe_name.as_str();
         if is_browser(exe) {
             (CategoryKind::Web, false)
-        } else if WORK.iter().any(|w| exe.eq_ignore_ascii_case(w)) {
+        } else if WORK.iter().any(|w| exe_stem(w) == exe_stem(exe)) {
             (CategoryKind::Work, false)
         } else {
             (CategoryKind::Other, false)
@@ -150,5 +158,18 @@ mod tests {
         );
         assert_eq!(browser_family("MSEDGE.exe"), Some("edge"));
         assert_eq!(browser_family("code.exe"), None);
+        // Linux names match without the .exe suffix.
+        assert_eq!(browser_family("firefox"), Some("firefox"));
+        assert_eq!(
+            c.categorize(&p("code", "/usr/share/code/code"), None),
+            (CategoryKind::Work, false)
+        );
+        assert_eq!(
+            c.categorize(
+                &p("game", "/home/x/.steam/steam/steamapps/common/G/game"),
+                None
+            ),
+            (CategoryKind::Game, true)
+        );
     }
 }

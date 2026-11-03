@@ -49,3 +49,15 @@ pub fn nag_action(ctx: State<'_, AppCtx>, rule_id: String, action: String) -> Re
 pub fn open_dashboard(app: AppHandle) {
     windows::show_dashboard(&app);
 }
+
+#[tauri::command]
+pub fn get_autostart(ctx: State<'_, AppCtx>) -> Result<bool, String> {
+    ctx.platform.autostart().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_autostart(ctx: State<'_, AppCtx>, enabled: bool) -> Result<(), String> {
+    ctx.platform
+        .set_autostart(enabled)
+        .map_err(|e| e.to_string())
+}

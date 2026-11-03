@@ -10,6 +10,7 @@ fn main() {
     let platform = an_platform::create_platform();
     println!("caps: {:?}", platform.caps());
     println!("steam: {:?}", platform.steam_info());
+    println!("exclusive fullscreen: {}", platform.exclusive_fullscreen());
     for i in 0..count {
         if i > 0 {
             std::thread::sleep(Duration::from_secs(1));

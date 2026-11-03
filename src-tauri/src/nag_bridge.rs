@@ -5,9 +5,12 @@
 //! closes windows to match, and pushes the list to them as `nags-changed`.
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use an_core::{Event, EventBus, NagEvent, NagLevel, Timestamp};
+use an_platform::Platform;
 use an_rules::EngineSnapshot;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -31,6 +34,7 @@ pub struct NagView {
 #[derive(Clone, Default)]
 pub struct NagBridge {
     nags: Arc<Mutex<BTreeMap<String, NagView>>>,
+    deferred: Arc<AtomicBool>,
 }
 
 impl NagBridge {
@@ -118,29 +122,83 @@ impl NagBridge {
         (toast, overlay)
     }
 
-    /// Forwards bus events until the bus closes. Runs on Tauri's runtime.
-    pub fn spawn(&self, app: AppHandle, bus: &EventBus, engine: watch::Receiver<EngineSnapshot>) {
+    /// Forwards bus events until the bus closes, and rechecks every second
+    /// whether a deferred overlay can be shown. Runs on Tauri's runtime.
+    pub fn spawn(
+        &self,
+        app: AppHandle,
+        bus: &EventBus,
+        engine: watch::Receiver<EngineSnapshot>,
+        platform: Arc<dyn Platform>,
+    ) {
         let bridge = self.clone();
         let mut rx = bus.subscribe();
         tauri::async_runtime::spawn(async move {
+            let mut recheck = tokio::time::interval(Duration::from_secs(1));
+            let mut deferred = false;
+            let mut shown = (false, false);
             loop {
-                let nag = match rx.recv().await {
-                    Ok(Event::Nag(n)) => n,
-                    Ok(_) => continue,
-                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
-                    Err(broadcast::error::RecvError::Closed) => break,
-                };
-                let changed = bridge.apply(&nag, &engine.borrow());
-                if !changed {
-                    continue;
+                tokio::select! {
+                    event = rx.recv() => {
+                        let nag = match event {
+                            Ok(Event::Nag(n)) => n,
+                            Ok(_) => continue,
+                            Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                            Err(broadcast::error::RecvError::Closed) => break,
+                        };
+                        if !bridge.apply(&nag, &engine.borrow()) {
+                            continue;
+                        }
+                        let _ = app.emit("nags-changed", bridge.current());
+                    }
+                    _ = recheck.tick() => {}
                 }
                 let (toast, overlay) = bridge.wants();
-                if let Err(e) = windows::sync_nag_windows(&app, toast, overlay) {
-                    tracing::warn!("cannot update nag windows: {e}");
+                let plan = plan_windows(toast, overlay, || platform.exclusive_fullscreen());
+                if plan.deferred && !deferred {
+                    tracing::info!("overlay deferred: exclusive fullscreen");
+                    platform.alert();
                 }
-                let _ = app.emit("nags-changed", bridge.current());
+                deferred = plan.deferred;
+                bridge.deferred.store(deferred, Ordering::SeqCst);
+                if (plan.toast, plan.overlay) != shown {
+                    match windows::sync_nag_windows(&app, plan.toast, plan.overlay) {
+                        Ok(()) => shown = (plan.toast, plan.overlay),
+                        Err(e) => tracing::warn!("cannot update nag windows: {e}"),
+                    }
+                }
             }
         });
+    }
+
+    /// True while a nag waits for an exclusive-fullscreen app to let go.
+    pub fn is_deferred(&self) -> bool {
+        self.deferred.load(Ordering::SeqCst)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct WindowPlan {
+    toast: bool,
+    overlay: bool,
+    deferred: bool,
+}
+
+/// Which windows to show. While an exclusive-fullscreen app owns the screen,
+/// topmost windows stay invisible behind it (or knock it out of fullscreen),
+/// so overlays wait; the caller beeps and the tray shows the nag instead.
+fn plan_windows(toast: bool, overlay: bool, exclusive: impl FnOnce() -> bool) -> WindowPlan {
+    if overlay && exclusive() {
+        return WindowPlan {
+            toast: false,
+            overlay: false,
+            deferred: true,
+        };
+    }
+    WindowPlan {
+        toast,
+        overlay,
+        deferred: false,
     }
 }
 
@@ -160,6 +218,22 @@ mod tests {
             break_for_ms: Some(1000),
             snoozes_left: 1,
         }
+    }
+
+    #[test]
+    fn overlays_wait_for_exclusive_fullscreen() {
+        let plan = plan_windows(false, true, || true);
+        assert_eq!(
+            plan,
+            WindowPlan {
+                toast: false,
+                overlay: false,
+                deferred: true
+            }
+        );
+        assert!(plan_windows(false, true, || false).overlay);
+        // Toasts never ask the platform.
+        assert!(plan_windows(true, false, || panic!("not asked")).toast);
     }
 
     #[test]

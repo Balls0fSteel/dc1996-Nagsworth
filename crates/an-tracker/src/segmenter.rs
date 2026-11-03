@@ -16,6 +16,7 @@
 //! - The open segment is written to storage at least every `flush_ms`.
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -428,6 +429,18 @@ impl SegmenterTask {
             .await
         {
             Ok(row) => {
+                // Name the running Steam game after its manifest once.
+                if row.display_name.is_none()
+                    && let Some(steam) = &steam
+                    && let Some(path) = &steam.steam_path
+                    && crate::gaming::SteamDetector.detect(process, Some(steam))
+                    && let Some(name) =
+                        crate::gaming::steam::app_name(Path::new(path), steam.running_app_id)
+                {
+                    let id = row.id;
+                    self.storage
+                        .send(move |db| db.set_display_name_if_empty(id, &name));
+                }
                 let app = AppRef {
                     id: row.id,
                     exe_name: row.exe_name,

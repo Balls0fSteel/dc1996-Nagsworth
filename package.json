@@ -9,6 +9,7 @@
     "ui:build": "npm --prefix ui run build",
     "ui:check": "npm --prefix ui run check",
     "ext:build": "npm --prefix extension run build",
+    "ext:package": "npm --prefix extension run package",
     "ext:check": "npm --prefix extension run check"
   },
   "devDependencies": {

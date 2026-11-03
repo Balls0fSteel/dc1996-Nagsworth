@@ -2,6 +2,39 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-03_120113_1793703673: M2-M6 completed, `tauri dev` verified
+
+- Verified the M0 acceptance item left open: `npm run tauri dev` (run on the
+  hidden desktop) starts Vite, builds and runs the app, logs `tray icon
+  created` (new log line) and renders the dashboard from the dev server.
+- M2: Steam game names from `appmanifest_<id>.acf` across the library
+  folders in `libraryfolders.vdf`, set once as display name; user
+  `known_games.toml` in the data directory extends the built-in game list.
+- M5: Linux backend in `an-platform/src/linux/`: X11/XWayland via x11rb
+  (EWMH active window, `_NET_WM_PID`, fullscreen state, MIT-SCREEN-SAVER
+  idle), Wayland via `ext-idle-notify-v1` and
+  `wlr-foreign-toplevel-management`, logind session events and lock over
+  zbus, XDG autostart, Steam `registry.vdf`; `tauri.linux.conf.json` for
+  `.deb`/AppImage. Exe names now compare by stem so categorization works for
+  Linux names. Cross-checked with clippy for `x86_64-unknown-linux-gnu`; not
+  run on Linux (WSL unavailable here: Hyper-V is off).
+- M6: autostart toggle in Settings (Tauri commands over
+  `Platform::set_autostart`); `GET /export` (CSV, or JSON with web visits) and
+  `POST /backup` (`VACUUM INTO` under `backups/`) with Settings buttons; CI
+  workflow (Windows checks + Linux build/tests) and tag-triggered release
+  workflow with optional Windows signing from secrets; docs/RELEASING.md;
+  release NSIS installer built (not installed).
+- M4: `npm run ext:package` zips both extension builds for the stores with a
+  small dependency-free zip writer.
+- Exclusive fullscreen: overlays are deferred while
+  `SHQueryUserNotificationState` reports a D3D fullscreen app or a
+  presentation; the bridge beeps once and the tray tooltip names the nag.
+  The bridge now rechecks once per second.
+- Fixed: the Vite config used `__dirname` (warning under Vite 8).
+- Mixed-DPI check: overlays covered both monitors at their physical sizes.
+- Checks: 59 tests, clippy `-D warnings` and fmt clean on Windows; Linux
+  clippy clean for `an-platform`; UI and extension checks clean.
+
 ## 2026-11-03_113806_1793702286: M0 scaffold plus tracking, nags and extension
 
 - Workspace with six crates (`an-core`, `an-platform`, `an-storage`,

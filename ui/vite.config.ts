@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 
@@ -13,10 +12,10 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        index: resolve(__dirname, "index.html"),
-        toast: resolve(__dirname, "toast.html"),
-        overlay: resolve(__dirname, "overlay.html"),
-        pair: resolve(__dirname, "pair.html"),
+        index: `${import.meta.dirname}/index.html`,
+        toast: `${import.meta.dirname}/toast.html`,
+        overlay: `${import.meta.dirname}/overlay.html`,
+        pair: `${import.meta.dirname}/pair.html`,
       },
     },
   },

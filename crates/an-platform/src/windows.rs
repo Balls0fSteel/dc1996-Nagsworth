@@ -19,6 +19,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation};
 use windows::Win32::Storage::Packaging::Appx::GetPackageFamilyName;
+use windows::Win32::System::Diagnostics::Debug::MessageBeep;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Power::RegisterSuspendResumeNotification;
 use windows::Win32::System::Registry::{
@@ -35,13 +36,16 @@ use windows::Win32::System::Threading::{
     PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+use windows::Win32::UI::Shell::{
+    QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN, SHQueryUserNotificationState,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DEVICE_NOTIFY_WINDOW_HANDLE, DefWindowProcW, DispatchMessageW,
     EnumChildWindows, GetDesktopWindow, GetForegroundWindow, GetMessageW, GetShellWindow,
     GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, HWND_MESSAGE,
-    MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMSUSPEND, RegisterClassW, TranslateMessage, WINDOW_EX_STYLE,
-    WINDOW_STYLE, WM_POWERBROADCAST, WM_WTSSESSION_CHANGE, WNDCLASSW, WTS_SESSION_LOCK,
-    WTS_SESSION_LOGOFF, WTS_SESSION_LOGON, WTS_SESSION_UNLOCK,
+    MB_ICONEXCLAMATION, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMSUSPEND, RegisterClassW,
+    TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE, WM_POWERBROADCAST, WM_WTSSESSION_CHANGE,
+    WNDCLASSW, WTS_SESSION_LOCK, WTS_SESSION_LOGOFF, WTS_SESSION_LOGON, WTS_SESSION_UNLOCK,
 };
 use windows::core::{BOOL, PCWSTR, PWSTR, w};
 
@@ -229,6 +233,19 @@ impl Platform for WindowsPlatform {
             running_app_id,
             steam_path: read_reg_string(STEAM_KEY, w!("SteamPath")),
         })
+    }
+
+    fn exclusive_fullscreen(&self) -> bool {
+        // SAFETY: plain query.
+        matches!(
+            unsafe { SHQueryUserNotificationState() },
+            Ok(s) if s == QUNS_RUNNING_D3D_FULL_SCREEN || s == QUNS_PRESENTATION_MODE
+        )
+    }
+
+    fn alert(&self) {
+        // SAFETY: plain call; failure only means no sound.
+        let _ = unsafe { MessageBeep(MB_ICONEXCLAMATION) };
     }
 
     fn caps(&self) -> Caps {
@@ -551,5 +568,6 @@ mod tests {
         assert!(p.idle_time().is_ok());
         // May be None on a hidden desktop or in CI.
         let _ = p.foreground_window().unwrap();
+        let _ = p.exclusive_fullscreen();
     }
 }

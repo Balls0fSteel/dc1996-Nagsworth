@@ -7,7 +7,7 @@ use an_storage::StorageError;
 use an_tracker::{ExtEvent, ExtEventKind};
 use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{StatusCode, header};
 use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch, post};
@@ -63,6 +63,8 @@ pub fn routes(state: ApiState) -> Router<ApiState> {
         .route("/categories", get(list_categories).post(create_category))
         .route("/rules", get(get_rules).put(put_rules))
         .route("/nags", get(list_nags))
+        .route("/export", get(export))
+        .route("/backup", post(backup))
         .route("/events", get(events))
         .route("/control/snooze", post(control_snooze))
         .route("/control/skip", post(control_skip))
@@ -378,6 +380,91 @@ async fn get_rules(State(s): State<ApiState>) -> ApiResult<Value> {
 async fn put_rules(State(s): State<ApiState>, body: String) -> ApiResult<Value> {
     s.config_store.write(&body).map_err(bad_request)?;
     get_rules(State(s)).await
+}
+
+// ---- export and backup ----
+
+#[derive(Deserialize)]
+struct ExportQuery {
+    from: Option<LocalDay>,
+    to: Option<LocalDay>,
+    #[serde(default)]
+    format: ExportFormat,
+}
+
+#[derive(Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum ExportFormat {
+    #[default]
+    Json,
+    Csv,
+}
+
+fn csv_field(s: &str) -> String {
+    if s.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
+}
+
+/// Segments (and web visits for JSON) of a day range, as a download.
+async fn export(
+    State(s): State<ApiState>,
+    Query(q): Query<ExportQuery>,
+) -> Result<Response, ApiError> {
+    let (from, to) = Range {
+        from: q.from,
+        to: q.to,
+    }
+    .resolve(&s)?;
+    let segments = s
+        .storage
+        .call(move |db| db.export_segments(from, to))
+        .await?;
+    let disposition = |ext: &str| format!("attachment; filename=\"activity-{from}-{to}.{ext}\"");
+    if q.format == ExportFormat::Csv {
+        let mut out = String::from("day,start,end,kind,exe,display_name,category,title\n");
+        for r in &segments {
+            let cols = [
+                r.day.to_string(),
+                r.start.to_string(),
+                r.end.to_string(),
+                r.kind.to_string(),
+                r.exe_name.clone().unwrap_or_default(),
+                r.display_name.clone().unwrap_or_default(),
+                r.category.clone().unwrap_or_default(),
+                r.title.clone().unwrap_or_default(),
+            ];
+            let line: Vec<String> = cols.iter().map(|c| csv_field(c)).collect();
+            out.push_str(&line.join(","));
+            out.push('\n');
+        }
+        return Ok((
+            [
+                (header::CONTENT_TYPE, "text/csv; charset=utf-8".to_string()),
+                (header::CONTENT_DISPOSITION, disposition("csv")),
+            ],
+            out,
+        )
+            .into_response());
+    }
+    let visits = s.storage.call(move |db| db.export_visits(from, to)).await?;
+    let body = json!({ "from": from, "to": to, "segments": segments, "web_visits": visits });
+    Ok((
+        [(header::CONTENT_DISPOSITION, disposition("json"))],
+        Json(body),
+    )
+        .into_response())
+}
+
+/// Writes a consistent copy of the database into the backup folder.
+async fn backup(State(s): State<ApiState>) -> ApiResult<Value> {
+    let name = format!("activity-{}-{}.db", s.today(), s.clock.now());
+    let path = s.backup_dir.join(name);
+    let p = path.clone();
+    s.storage.call(move |db| db.backup_to(&p)).await?;
+    Ok(Json(json!({ "path": path.display().to_string() })))
 }
 
 // ---- nags ----

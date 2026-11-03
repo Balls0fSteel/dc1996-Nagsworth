@@ -54,6 +54,7 @@ fn fixture() -> Fixture {
         activity: arx,
         ext_tx,
         ext_clients: Arc::default(),
+        backup_dir: std::env::temp_dir().join(format!("an-api-backup-{}", std::process::id())),
     };
     Fixture {
         app: router(state),
@@ -216,6 +217,8 @@ async fn stats_and_apps_answer() {
         "/v1/apps",
         "/v1/categories",
         "/v1/nags",
+        "/v1/export",
+        "/v1/export?format=csv&from=2026-11-01&to=2026-11-03",
     ] {
         let (s, body) = send(&f.app, get(path, Some(&f.token))).await;
         assert_eq!(s, StatusCode::OK, "{path}: {body}");
@@ -273,4 +276,14 @@ async fn cors_allows_extensions_only() {
         !res.headers()
             .contains_key(header::ACCESS_CONTROL_ALLOW_ORIGIN)
     );
+}
+
+#[tokio::test]
+async fn backup_writes_a_database_copy() {
+    let f = fixture();
+    let (s, body) = send(&f.app, post("/v1/backup", Some(&f.token), json!({}))).await;
+    assert_eq!(s, StatusCode::OK, "{body}");
+    let path = std::path::PathBuf::from(body["path"].as_str().unwrap());
+    assert!(path.exists());
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
 }

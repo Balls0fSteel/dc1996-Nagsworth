@@ -1,9 +1,10 @@
 //! Tauri setup: single instance, tray, hidden main window that closes to the
 //! tray, nag windows, and runtime shutdown on quit.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use an_core::{Activity, ControlCommand, Event, EventBus};
+use an_platform::Platform;
 use an_rules::EngineSnapshot;
 use tauri::{Manager, RunEvent, WindowEvent};
 use tokio::sync::watch;
@@ -21,6 +22,7 @@ pub struct AppCtx {
     pub base_url: Option<String>,
     pub activity: watch::Receiver<Activity>,
     pub engine: watch::Receiver<EngineSnapshot>,
+    pub platform: Arc<dyn Platform>,
 }
 
 impl AppCtx {
@@ -57,7 +59,8 @@ pub fn run() {
     // For tests on a hidden desktop: no icon on the user's taskbar.
     let no_tray = args.iter().any(|a| a == "--no-tray");
 
-    let runtime = match Runtime::start(data_dir, an_platform::create_platform()) {
+    let platform = an_platform::create_platform();
+    let runtime = match Runtime::start(data_dir, platform.clone()) {
         Ok(rt) => rt,
         Err(e) => {
             tracing::error!("cannot start: {e:#}");
@@ -79,9 +82,11 @@ pub fn run() {
         base_url: runtime.api_base_url(),
         activity: runtime.activity.clone(),
         engine: runtime.engine.clone(),
+        platform: platform.clone(),
     };
     let bus = runtime.bus.clone();
     let engine = runtime.engine.clone();
+    let bridge_platform = platform;
     let bridge = NagBridge::default();
 
     let app = tauri::Builder::default()
@@ -96,6 +101,8 @@ pub fn run() {
             commands::current_nags,
             commands::nag_action,
             commands::open_dashboard,
+            commands::get_autostart,
+            commands::set_autostart,
         ])
         .setup(move |app| {
             // Without a tray (no Explorer, another desktop) the dashboard is
@@ -104,7 +111,7 @@ pub fn run() {
                 && tray::create(app.handle())
                     .inspect_err(|e| tracing::warn!("no tray icon: {e}"))
                     .is_ok();
-            bridge.spawn(app.handle().clone(), &bus, engine);
+            bridge.spawn(app.handle().clone(), &bus, engine, bridge_platform);
             if !start_hidden || !tray_ok {
                 windows::show_dashboard(app.handle());
             }

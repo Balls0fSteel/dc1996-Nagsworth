@@ -9,6 +9,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Manager};
 
 use crate::app::AppCtx;
+use crate::nag_bridge::NagBridge;
 use crate::windows;
 
 const PAUSE_MINUTES: u64 = 30;
@@ -82,6 +83,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .build(app)?;
+    tracing::info!("tray icon created");
 
     // Keep the tooltip and menu state current.
     let app = app.clone();
@@ -95,7 +97,21 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 let activity = ctx.activity.borrow().clone();
                 let reading_mode = ctx.engine.borrow().reading_mode;
                 let paused = activity.kind == Some(SegmentKind::Paused);
+                // A nag that cannot be shown (exclusive fullscreen) goes here.
+                let bridge = app.state::<NagBridge>();
+                let due = if bridge.is_deferred() {
+                    bridge.current()
+                } else {
+                    Vec::new()
+                };
                 let tip = match (&activity.kind, &activity.app) {
+                    _ if !due.is_empty() => format!(
+                        "activity_nagger: {} (waiting for fullscreen to end)",
+                        due.iter()
+                            .map(|n| n.rule_name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
                     (Some(SegmentKind::Active), Some(a)) => {
                         format!("activity_nagger: {}", a.exe_name)
                     }

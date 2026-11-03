@@ -10,7 +10,6 @@ use an_core::{ProcessInfo, Sample, SessionEvent, SessionState, Timestamp, Window
 
 pub mod mock;
 
-#[cfg(not(windows))]
 pub mod linux;
 #[cfg(windows)]
 pub mod windows;
@@ -74,6 +73,15 @@ pub trait Platform: Send + Sync {
         None
     }
 
+    /// An exclusive-fullscreen game or a presentation owns the screen, so
+    /// always-on-top windows would not be seen.
+    fn exclusive_fullscreen(&self) -> bool {
+        false
+    }
+
+    /// A short attention sound, for nags that cannot be shown.
+    fn alert(&self) {}
+
     fn caps(&self) -> Caps;
 
     /// One poll: foreground window, idle time and session state. Errors are
@@ -102,8 +110,13 @@ pub fn create_platform() -> Arc<dyn Platform> {
     {
         Arc::new(windows::WindowsPlatform::new())
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
     {
         Arc::new(linux::LinuxPlatform::new())
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    {
+        tracing::warn!("no platform backend for this OS; nothing is tracked");
+        Arc::new(MockPlatform::default())
     }
 }

@@ -1,7 +1,8 @@
 # activity_nagger
 
-An open source activity tracker and break nagger for your own PC (Windows
-first, Linux planned). Working name; a real one is still to be chosen.
+An open source activity tracker and break nagger for your own PC: Windows,
+plus a Linux backend for X11 and wlroots Wayland compositors. Working name;
+a real one is still to be chosen.
 
 - **Tracks** which app is in front and for how long (with idle, lock and sleep
   detection), how much of it is gaming (Steam, launcher folders, known games,
@@ -13,8 +14,9 @@ first, Linux planned). Working name; a real one is still to be chosen.
   fullscreen overlay on every monitor to (optionally) locking the workstation.
 
 Everything stays on your machine: one SQLite file under
-`%LOCALAPPDATA%\activity_nagger\`, and a local API bound to `127.0.0.1`.
-No global hooks, no injection, no reading other processes' memory.
+`%LOCALAPPDATA%\activity_nagger\` (`~/.local/share/activity_nagger/` on
+Linux), and a local API bound to `127.0.0.1`. The dashboard exports CSV/JSON
+and writes database backups (Settings). No global hooks, no injection, no reading other processes' memory.
 
 ## Build and run
 
@@ -36,9 +38,12 @@ npm --prefix extension install
 npm run tauri dev
 ```
 
-`npm run tauri build` makes an installer (NSIS). The app starts in the tray;
-left-click the icon for the dashboard. Closing the dashboard keeps it running;
-use the tray's Quit.
+`npm run tauri build` makes an installer (NSIS on Windows, `.deb` and
+AppImage on Linux); see [docs/RELEASING.md](docs/RELEASING.md) for releases,
+signing and the extension store packages (`npm run ext:package`).
+
+The app starts in the tray; left-click the icon for the dashboard. Closing
+the dashboard keeps it running; use the tray's Quit.
 
 Command-line flags: `--hidden` / `--autostart` start without showing the
 dashboard; `--no-tray` skips the tray icon (tests). `AN_DATA_DIR` overrides the
@@ -56,6 +61,15 @@ or `extension/dist/firefox/manifest.json` as a temporary add-on (Firefox).
 Then pair it: dashboard, Settings, "Show pairing code", and enter the code in
 the extension's popup.
 
+### Linux
+
+Foreground tracking uses EWMH on X11/XWayland and
+`wlr-foreign-toplevel-management` on wlroots compositors (Sway, Hyprland);
+idle uses MIT-SCREEN-SAVER or `ext-idle-notify-v1`; lock and sleep come from
+systemd-logind. GNOME on Wayland exposes neither the focused window nor idle
+time, so there only X clients are tracked. Building needs the WebKitGTK
+packages listed in `.github/workflows/ci.yml`.
+
 ## Configuration
 
 The config file is `%LOCALAPPDATA%\activity_nagger\config.toml`, written from
@@ -70,6 +84,11 @@ scope = { category = "Game" }
 trigger = { kind = "daily_total", limit = "2h", renag_every = "15m" }
 escalation = [ { after = "0s", level = "toast" }, { after = "10m", level = "overlay" } ]
 ```
+
+Games: the built-in list of game executables can be extended with
+`known_games.toml` in the data directory (`games = ["MyGame.exe"]`, or
+`"javaw.exe@minecraft"` to also require a path fragment). Steam games get
+their store name as display name.
 
 ## Tests
 

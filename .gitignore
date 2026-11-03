@@ -7,3 +7,4 @@ node_modules/
 *.db-shm
 /src-tauri/gen/
 .DS_Store
+/src-tauri/tauri.signing.json

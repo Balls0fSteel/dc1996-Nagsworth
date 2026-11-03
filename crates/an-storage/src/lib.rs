@@ -151,6 +151,11 @@ mod tests {
             .unwrap();
         assert_eq!(c.category_source, "user");
         assert_eq!(c.display_name.as_deref(), Some("My game"));
+        db.set_display_name_if_empty(a.id, "Other").unwrap();
+        assert_eq!(
+            db.app(a.id).unwrap().unwrap().display_name.as_deref(),
+            Some("My game")
+        );
         assert_eq!(db.apps().unwrap().len(), 1);
     }
 
@@ -189,6 +194,18 @@ mod tests {
         assert_eq!(tl[1].kind, SegmentKind::Idle);
         assert_eq!(db.daily_usage(d, d).unwrap()[0].ms, 20_000);
 
+        let exported = db.export_segments(d, d).unwrap();
+        assert_eq!(exported.len(), 2);
+        assert_eq!(exported[0].category.as_deref(), Some("Work"));
+        assert_eq!(exported[0].title.as_deref(), Some("main.rs"));
+        let backup = std::env::temp_dir().join(format!("an-backup-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&backup);
+        db.backup_to(&backup).unwrap();
+        let copy = Db::open(&backup).unwrap();
+        assert_eq!(copy.usage_by_app(d, d).unwrap()[0].ms, 20_000);
+        drop(copy);
+        let _ = std::fs::remove_file(&backup);
+
         // Pruning drops segments but keeps totals.
         assert_eq!(db.prune(day("2026-11-03"), 0).unwrap(), 2);
         assert!(db.timeline(d).unwrap().is_empty());
@@ -204,6 +221,7 @@ mod tests {
             .unwrap();
         db.extend_visit(v, 30_000).unwrap();
         assert_eq!(db.usage_by_host(d, d).unwrap()[0].ms, 30_000);
+        assert_eq!(db.export_visits(d, d).unwrap()[0].host, "example.com");
         assert!(db.mark_ext_event("c1", 5, 3).unwrap());
         assert!(!db.mark_ext_event("c1", 5, 3).unwrap());
     }

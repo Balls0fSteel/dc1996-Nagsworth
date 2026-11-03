@@ -9,7 +9,7 @@ specific to this project. Read [PLAN.md](PLAN.md) and
 | Crate | Path | Role |
 |---|---|---|
 | `an-core` | `crates/an-core` | Domain types, `Event` + `EventBus`, `Clock`, `Config`, `LocalDay`. No I/O beyond the config file. |
-| `an-platform` | `crates/an-platform` | `Platform` trait; `windows.rs` (Win32), `mock.rs`, `linux.rs` (stub). |
+| `an-platform` | `crates/an-platform` | `Platform` trait; `windows.rs` (Win32), `linux/` (X11, Wayland, logind), `mock.rs`. |
 | `an-storage` | `crates/an-storage` | SQLite (`rusqlite`, bundled), migrations, storage actor (`StorageHandle`), stats queries. |
 | `an-tracker` | `crates/an-tracker` | `Sampler`, `Segmenter` (pure) + `SegmenterTask`, `Categorizer`, `gaming/`, `WebSegmenter`. |
 | `an-rules` | `crates/an-rules` | `RuleSet` (TOML), `Engine` (pure state machine), `EngineTask`. |
@@ -47,6 +47,16 @@ npm run ext:check
 npm run ext:build
 npm run tauri -- build --debug --no-bundle
 ```
+
+The Linux backend cannot run here (no WSL); cross-check it with the pinned
+1.90.0 toolchain, which has the Linux std (the default `stable` does not):
+
+```bash
+cargo +1.90.0 clippy -p an-platform --target x86_64-unknown-linux-gnu --all-targets -- -D warnings
+```
+
+The rest of the workspace needs a Linux C toolchain (bundled SQLite) and is
+covered by the `linux` CI job.
 
 A plain `cargo build` of `an-app` loads the UI from the Vite dev server
 (`npm run ui:dev`); build through the Tauri CLI to embed `ui/dist`.

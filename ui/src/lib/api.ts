@@ -231,4 +231,29 @@ export const api = {
   pause: (minutes?: number) => request("POST", "/control/pause", { minutes }),
   resume: () => request("POST", "/control/resume"),
   readingMode: (on: boolean) => request("POST", "/control/reading-mode", { on }),
+  backup: () => request<{ path: string }>("POST", "/backup"),
 };
+
+/** Downloads `/export` as a file through a blob link (the route needs the token). */
+export async function downloadExport(format: "csv" | "json", from: string, to: string) {
+  const { base_url, token } = await apiInfo();
+  const res = await fetch(`${base_url}/export?format=${format}&from=${from}&to=${to}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `activity-${from}-${to}.${format}`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** Autostart lives in the app, not the HTTP API; `null` outside the app. */
+export async function getAutostart(): Promise<boolean | null> {
+  return isTauri() ? invoke<boolean>("get_autostart") : null;
+}
+
+export async function setAutostart(enabled: boolean): Promise<void> {
+  await invoke("set_autostart", { enabled });
+}
