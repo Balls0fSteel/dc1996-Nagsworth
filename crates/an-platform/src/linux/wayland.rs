@@ -88,6 +88,14 @@ pub fn spawn() -> Option<Arc<Mutex<Shared>>> {
         pending: HashMap::new(),
         current: HashMap::new(),
     };
+    // Receive the existing toplevels (first roundtrip) and their title, app
+    // id and state (second) before the first sample asks for them.
+    for _ in 0..2 {
+        if let Err(e) = queue.roundtrip(&mut state) {
+            tracing::warn!("wayland roundtrip failed: {e}");
+            return None;
+        }
+    }
     std::thread::Builder::new()
         .name("an-wayland".into())
         .spawn(move || {
@@ -196,10 +204,8 @@ impl Dispatch<zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1, ()> 
             Event::AppId { app_id } => pending.app_id = app_id,
             Event::State { state: raw } => {
                 // An array of u32 state values in native byte order.
-                let states: Vec<u32> = raw
-                    .chunks_exact(4)
-                    .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
-                    .collect();
+                let (chunks, _) = raw.as_chunks::<4>();
+                let states: Vec<u32> = chunks.iter().map(|c| u32::from_ne_bytes(*c)).collect();
                 pending.activated = states.contains(&2);
                 pending.fullscreen = states.contains(&3);
             }

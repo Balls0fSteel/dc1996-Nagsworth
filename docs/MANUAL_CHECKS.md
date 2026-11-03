@@ -43,8 +43,17 @@ afterwards.
 
 ## Linux desktop
 
+Automated on the Xubuntu VM (2026-11-03_230747_1793743667):
+`tools/linux_checks.sh` (X11 under Xvfb + xfwm4, Wayland under headless
+sway, logind, autostart: 14/14) and `tools/linux_app_check.sh` (the built app
+under Xvfb: API, tracking of an xterm, the break overlay: 8/8); the `.deb`
+installs, runs and removes. What still needs a real desktop session:
+
 Build on the target machine (WebKitGTK packages as in
 `.github/workflows/ci.yml`), then `npm run tauri dev`.
+
+- The tray icon in a panel with a StatusNotifier host (Xfce, KDE): the menu
+  works and the tooltip updates.
 
 - X11 session, and a wlroots Wayland compositor (Sway, Hyprland): the
   dashboard header shows the app in front; switching apps changes it within

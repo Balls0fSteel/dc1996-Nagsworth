@@ -2,6 +2,28 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-03_230747_1793743667: Linux and Windows checked on the test VMs
+
+- Xubuntu 26.04 VM: installed the Tauri build libraries, Node, sway, foot,
+  wmctrl; workspace clippy `-D warnings` and all tests pass there.
+- New `tools/linux_checks.sh` (14/14) and `tools/linux_app_check.sh` (8/8),
+  described in AGENTS.md; `probe` gained `--session`, `--autostart`, `--lock`.
+- Fixed, found on the VM: logind Lock/Unlock signals were never received (the
+  watcher matched `session/auto`, but signals come from the session's real
+  path; now resolved with `GetSessionByPID`); the first Wayland samples saw no
+  toplevels (two roundtrips before the event thread starts); newer stable
+  clippy flagged `chunks_exact(4)` (now `as_chunks`); the `.deb` listed
+  `libwebkit2gtk-4.1-0` twice.
+- The built Linux app under Xvfb tracked an xterm, rendered the break
+  overlay and created its tray icon; the `.deb` installs, runs and removes.
+- Windows 11 VM: `tools/windows_install_test.ps1` (new) passed with 0
+  failures on the release installer.
+- The Xubuntu VM hung swapping on a 6-job build (4 GB RAM); recovered with a
+  VMware soft reset; builds there now use 2 jobs.
+- Still open: a real Linux desktop session (panel tray), tray clicks and an
+  exclusive-fullscreen game on Windows (the Windows VM's session is locked),
+  GitHub-hosted CI. FreeBSD and macOS have no backend (D1).
+
 ## 2026-11-03_223423_1793741663: Manual check list, tray action log
 
 - Tray menu actions are logged (`tray menu: <id>`), so a hand check of the

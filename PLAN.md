@@ -1,6 +1,6 @@
 # Activity tracker + nagger: plan
 
-Last updated: 2026-11-03_121237_1793704357
+Last updated: 2026-11-03_230747_1793743667
 
 Working name: `activity_nagger` (crate prefix `an-`). A real name is still to be
 chosen; the working name is used everywhere so a later rename is a
@@ -202,6 +202,17 @@ Verified here:
   (`activity_nagger_0.1.0_x64-setup.exe`, 3.6 MiB). Not installed.
 - `npm run ext:build` / `ext:package`: both manifests and both store zips
   (zip integrity checked).
+- Linux on the Xubuntu 26.04 VM (2026-11-03_230747_1793743667): workspace clippy
+  `-D warnings` and all tests pass; `tools/linux_checks.sh` 14/14 (X11:
+  active window, switching, idle, fullscreen; Wayland on sway: focused
+  toplevel, switching, idle, fullscreen; logind Lock/Unlock including
+  `Session.Lock`; autostart file); `tools/linux_app_check.sh` 8/8 (the built
+  app tracks an xterm, timeline, break overlay rendered by WebKitGTK, tray
+  created); the `.deb` installs, runs and removes. Two backend bugs found
+  and fixed (logind signals, first Wayland sample).
+- Windows 11 VM (clean machine): `tools/windows_install_test.ps1` 0 failures
+  (silent install, Settings > Apps entry, the installed app's API, silent
+  uninstall removes everything).
 - Extension in real browsers (`tools/ext_e2e.ps1`, 2026-11-03_121237_1793704357): headless Edge
   156 (`--load-extension`, tabs driven over DevTools) and Firefox 159 (via
   `web-ext run`, temporary add-on), each with a throwaway profile. Both paired
@@ -216,9 +227,8 @@ Verified here:
 
 Not verified (needs another machine, an account or the user; steps in
 docs/MANUAL_CHECKS.md):
-- The Linux backend on a real Linux desktop (no Linux machine; WSL is not
-  available here). Parsers are unit-tested; X11/Wayland/logind code only
-  compiles.
+- Linux in a real desktop session (panel tray, KDE, GNOME); the VM runs
+  were headless (Xvfb, headless sway).
 - Pairing typed by hand in the extension popup, and web time accruing while
   a browser is really in front (the hidden desktop has no foreground window;
   the web segmenter's foreground logic is unit-tested).
@@ -244,7 +254,7 @@ Milestone coverage:
 - **M4 Extension**: done. Pairing, persistent queue with backoff,
   heartbeat, `WebSegmenter`, web stats page, incognito opt-in; Chrome and
   Firefox store zips (`npm run ext:package`).
-- **M5 Linux**: done (unverified on Linux). X11 via x11rb + MIT-SCREEN-SAVER,
+- **M5 Linux**: done, checked on the Xubuntu VM. X11 via x11rb + MIT-SCREEN-SAVER,
   Wayland via `ext-idle-notify-v1` + `wlr-foreign-toplevel-management`,
   logind Lock/Unlock/PrepareForSleep and `Session.Lock`, XDG autostart,
   Steam `registry.vdf`; `.deb` + AppImage bundle config.
@@ -259,8 +269,7 @@ Milestone coverage:
 1. Use it for a few days: load the extension, pair it, tune
    `min_segment_ms`, `idle_after_s` and the rules.
 2. Push to GitHub and let CI run; fix anything the Linux job finds.
-3. Run it on a Linux desktop (X11 and a wlroots compositor) and fix what the
-   untested backend gets wrong.
+3. Try it in a real Linux desktop session (tray in a panel, KDE, GNOME).
 4. Choose the product name, then get a code signing certificate and submit
    the extension to the stores (docs/RELEASING.md).
 5. Backlog items: week/month charts, per-rule toggle, KDE Wayland window

@@ -48,15 +48,36 @@ npm run ext:build
 npm run tauri -- build --debug --no-bundle
 ```
 
-The Linux backend cannot run here (no WSL); cross-check it with the pinned
-1.90.0 toolchain, which has the Linux std (the default `stable` does not):
+For a quick Linux cross-check here, the pinned 1.90.0 toolchain has the
+Linux std (the default `stable` does not):
 
 ```bash
 cargo +1.90.0 clippy -p an-platform --target x86_64-unknown-linux-gnu --all-targets -- -D warnings
 ```
 
-The rest of the workspace needs a Linux C toolchain (bundled SQLite) and is
-covered by the `linux` CI job.
+### Test VMs
+
+The owner's VMware VMs (shared with the sibling `libretorrent` project) are
+reached with `ssh -i ~/.ssh/patorrent_vm x@<ip>`. Addresses change (bridged
+DHCP); ask VMware:
+
+```powershell
+& "C:\Program Files\VMware\VMware Workstation\vmrun.exe" -T ws getGuestIPAddress "C:\Users\x\Documents\Virtual Machines\Xubuntu\Xubuntu.vmx"
+```
+
+- **Xubuntu 26.04** (`Xubuntu.vmx`, was 192.168.1.26): passwordless sudo,
+  Rust in `~/.cargo`, Node 22, the Tauri build libraries, sway, foot, Xvfb,
+  xdotool, wmctrl. Only 4 GB RAM: build with `CARGO_BUILD_JOBS=2` under
+  `nohup`; 6 jobs made it swap until it hung (recovered with
+  `vmrun -T ws reset <vmx> soft`). Ship the tree with
+  `git archive --prefix=activity_nagger/ HEAD | ssh ... 'tar -xf - -C ~'`, then
+  run `tools/linux_checks.sh` (X11, Wayland, logind, autostart) and, after
+  `npm run tauri -- build --debug --bundles deb`, `tools/linux_app_check.sh`.
+- **Windows 11** (192.168.1.153): a clean machine for
+  `tools/windows_install_test.ps1 -Setup <setup.exe>` (copy both with `scp`).
+  Its console session is locked, so it cannot show the tray or a fullscreen
+  game.
+- FreeBSD and macOS VMs exist but have no backend here (D1).
 
 A plain `cargo build` of `an-app` loads the UI from the Vite dev server
 (`npm run ui:dev`); build through the Tauri CLI to embed `ui/dist`.

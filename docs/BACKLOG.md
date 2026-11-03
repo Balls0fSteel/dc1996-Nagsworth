@@ -13,9 +13,11 @@
   game leaves exclusive mode; a game that never does is only nagged by sound.
   The deferral path is unit-tested; it has not yet been seen with a real
   exclusive-fullscreen game.
-- **Linux**: the backend compiles and its parsers are tested, but it has not
-  run on a real Linux desktop (no Linux machine or WSL here). GNOME Wayland
-  tracks X clients only.
+- **Linux**: checked on the Xubuntu VM under Xvfb and headless sway, not yet
+  in a real desktop session (panel tray, KDE, GNOME). GNOME Wayland tracks X
+  clients only. On Wayland idle is counted from the app's start (the
+  compositor reports only "idle since now"), so idle right after a start can
+  be under-counted.
 - **Tray from other desktops**: a process on a hidden desktop can still
   register a tray icon on the user's taskbar; tests use `--no-tray`.
 
