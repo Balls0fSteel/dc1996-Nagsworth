@@ -2,6 +2,15 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-03_223423_1793741663: Manual check list, tray action log
+
+- Tray menu actions are logged (`tray menu: <id>`), so a hand check of the
+  menu can be confirmed from the log.
+- docs/MANUAL_CHECKS.md: steps and pass criteria for what automated runs
+  here cannot cover (tray menu clicks, a nag during an exclusive-fullscreen
+  game, the Linux backend on a Linux desktop, GitHub CI and releases, pairing
+  the extension by hand).
+
 ## 2026-11-03_121237_1793704357: Extension verified in real browsers, CI steps run locally
 
 - Added `tools/ext_e2e.ps1` (+ `tools/seed_ext.py`): runs the debug app, a

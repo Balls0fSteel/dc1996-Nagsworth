@@ -46,6 +46,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
             let ctx = app.state::<AppCtx>();
+            tracing::info!("tray menu: {}", event.id().as_ref());
             match event.id().as_ref() {
                 "open" => windows::show_dashboard(app),
                 "break" => ctx.control(ControlCommand::StartBreakNow { rule_id: None }),

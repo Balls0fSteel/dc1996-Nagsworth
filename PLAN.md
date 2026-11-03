@@ -214,7 +214,8 @@ Verified here:
   running app id, `SHQueryUserNotificationState`; the Steam manifest lookup
   finds the running game's name in the main library.
 
-Not verified (needs another machine, an account or the user):
+Not verified (needs another machine, an account or the user; steps in
+docs/MANUAL_CHECKS.md):
 - The Linux backend on a real Linux desktop (no Linux machine; WSL is not
   available here). Parsers are unit-tested; X11/Wayland/logind code only
   compiles.
@@ -254,6 +255,7 @@ Milestone coverage:
 
 ## Next steps
 
+0. Run the checks in docs/MANUAL_CHECKS.md.
 1. Use it for a few days: load the extension, pair it, tune
    `min_segment_ms`, `idle_after_s` and the rules.
 2. Push to GitHub and let CI run; fix anything the Linux job finds.
