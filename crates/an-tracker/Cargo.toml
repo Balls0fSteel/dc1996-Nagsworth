@@ -1,0 +1,18 @@
+[package]
+name = "an-tracker"
+description = "Sampling, segmentation and categorization for activity_nagger"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+an-core.workspace = true
+an-platform.workspace = true
+an-storage.workspace = true
+serde.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "test-util"] }

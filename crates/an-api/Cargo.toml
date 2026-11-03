@@ -1,0 +1,28 @@
+[package]
+name = "an-api"
+description = "Local HTTP API for the activity_nagger dashboard and browser extension"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+an-core.workspace = true
+an-rules.workspace = true
+an-storage.workspace = true
+an-tracker.workspace = true
+axum.workspace = true
+base64.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+http-body-util.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }
+tower.workspace = true

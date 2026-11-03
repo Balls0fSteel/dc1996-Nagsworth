@@ -1,0 +1,70 @@
+# activity_nagger configuration.
+#
+# The app reads %LOCALAPPDATA%\activity_nagger\config.toml (written from this
+# file on first start). Every key is optional; missing keys take the values
+# shown here. Durations use humantime syntax: "30s", "10m", "1h 30m".
+
+[general]
+# The local day starts at this time, so a late-night session counts toward
+# the previous day.
+day_start = "04:00"
+# Reading mode: break timers run on wall clock instead of pausing when there
+# is no keyboard or mouse input.
+reading_mode = false
+
+[tracking]
+poll_ms = 1000
+idle_after_s = 120
+# Foreground switches shorter than this are merged into the surrounding segment.
+min_segment_ms = 2000
+# "full" stores window titles, "none" stores only the app.
+store_titles = "full"
+retention_days = 365
+
+[web]
+# "host" stores only the site (example.com), "full" stores the whole URL.
+store_url = "host"
+include_incognito = false
+
+[api]
+port = 47821
+bind = "127.0.0.1"
+
+# Rules. Triggers:
+#   interval     every = work time, break_for = rest that resets the timer
+#   daily_total  limit = time per local day, renag_every = repeat while over
+#   continuous   limit = uninterrupted time, reset_after = rest that resets it
+#   schedule     windows = ["HH:MM-HH:MM", ...] when the scope is not allowed
+# scope: "any", { category = "Game" | "Work" | "Web" | "Other" }, { app = "game.exe" }
+# idle_policy: "pause" (idle time is rest) or "ignore" (idle time still counts).
+# Escalation levels: toast, overlay, lock (lock calls LockWorkStation).
+
+[[rules]]
+id = "rest-break"
+name = "Take a 10 minute break"
+trigger = { kind = "interval", every = "50m", break_for = "10m" }
+scope = "any"
+idle_policy = "pause"
+escalation = [ { after = "0s", level = "toast" }, { after = "90s", level = "overlay" } ]  # , { after = "5m", level = "lock" }
+snooze = { duration = "5m", max_per_day = 3 }
+
+[[rules]]
+id = "micro-break"
+name = "Micro-break: look away from the screen"
+trigger = { kind = "interval", every = "10m", break_for = "30s" }
+escalation = [ { after = "0s", level = "toast" } ]
+
+[[rules]]
+id = "gaming-daily"
+name = "Gaming limit"
+scope = { category = "Game" }
+trigger = { kind = "daily_total", limit = "2h", renag_every = "15m" }
+idle_policy = "ignore"
+escalation = [ { after = "0s", level = "toast" }, { after = "10m", level = "overlay" } ]
+
+[[rules]]
+id = "no-late-gaming"
+name = "No gaming late at night"
+scope = { category = "Game" }
+trigger = { kind = "schedule", windows = ["23:00-06:00"] }
+escalation = [ { after = "0s", level = "overlay" } ]

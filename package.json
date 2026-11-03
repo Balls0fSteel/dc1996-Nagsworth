@@ -1,0 +1,17 @@
+{
+  "name": "activity-nagger",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
+  "scripts": {
+    "tauri": "tauri",
+    "ui:dev": "npm --prefix ui run dev",
+    "ui:build": "npm --prefix ui run build",
+    "ui:check": "npm --prefix ui run check",
+    "ext:build": "npm --prefix extension run build",
+    "ext:check": "npm --prefix extension run check"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0"
+  }
+}

@@ -1,6 +1,6 @@
 # Activity tracker + nagger: plan
 
-Last updated: 2026-10-31_222834_1793482114
+Last updated: 2026-11-03_113806_1793702286
 
 Working name: `activity_nagger` (crate prefix `an-`). A real name is still to be
 chosen; the working name is used everywhere so a later rename is a
@@ -180,64 +180,67 @@ trigger = { kind = "schedule", windows = ["23:00-06:00"] }
 escalation = [ { after = "0s", level = "overlay" } ]
 ```
 
-## Current status
+## Current status (2026-11-03_113806_1793702286)
 
-Design only. No code exists yet. Implementation starts with M0 (planned for
-the week of 2026-11-02).
+M0 is complete, and most of M1-M4 came with it because the pure-logic
+pieces were cheap to finish properly. Everything below is built and tested,
+and the app was run on the hidden desktop (dashboard, break overlay on both
+monitors, API smoke test).
 
-## Next steps: M0 scaffold
+Acceptance for M0, checked:
+- `cargo build --workspace`, `cargo test --workspace` (53 tests), clippy
+  (`--all-targets`) and `cargo fmt --check` clean; `npm run ui:check` and
+  `npm run ext:check` clean.
+- The app starts with tray, dashboard and single instance; `/v1/health`
+  answers, `/v1/state` without a token is 401, with it shows the live
+  activity. Foreground detection checked on the real desktop with
+  `cargo run -p an-platform --example probe` (exe, title, fullscreen, Steam
+  running app id).
+- `npm run ext:build` emits `extension/dist/chrome` and `extension/dist/firefox`.
+- Not checked by hand: `npm run tauri dev` with the Vite dev server (the
+  `tauri build --debug --no-bundle` binary was run instead), the tray menu
+  itself (tests run with `--no-tray`), loading the extension into a real
+  browser.
 
-1. Root files: `.gitignore` (target, node_modules, ui/dist, extension/dist, *.db),
-   `rust-toolchain.toml` (stable), `rustfmt.toml`, `.editorconfig`, licenses,
-   `README.md`, `AGENTS.md` (crate map, conventions, "no global hooks", how to
-   build/run/test), `docs/ARCHITECTURE.md` (this design, expanded),
-   `docs/DECISIONS.md` (D1-D8), `docs/BACKLOG.md` (risks below).
-2. Workspace `Cargo.toml` with the shared dependencies; `config/default.toml`.
-3. `an-core`: all types, `EventBus`, `Clock`, `Config` with `Default` and `load()`
-   falling back to the bundled default. Test: config round-trip.
-4. `an-platform`: trait, `MockPlatform`, `WindowsPlatform` with
-   `foreground_window`, `idle_time`, `process_info` implemented for real
-   (small and de-risks the project); session events/autostart/lock return
-   `Unsupported` for now; `linux.rs` stub.
-5. `an-storage`: `Db::open` with migrations, storage actor, `upsert_segment`,
-   `close_segment`, `get_or_create_app`, `kv_get/kv_set`, `stats::usage_by_app`.
-   Test on an in-memory DB.
-6. `an-tracker`: `Sampler`, basic `Segmenter`, default `Categorizer`, empty
-   `gaming` module. Test: 3 scripted samples → 2 segments.
-7. `an-rules`: `RuleSet::from_toml` parsing the example (test); `Engine` handling
-   ticks and `Reload` only; all event/command types.
-8. `an-api`: `/health`, `/state`, `/ext/events`, bearer middleware, CORS; test via
-   `tower::ServiceExt::oneshot`.
-9. `src-tauri`: `tauri.conf.json` (CSP `connect-src http://127.0.0.1:*`),
-   `runtime.rs` starting all tasks on a dedicated tokio runtime, tray menu,
-   hidden main window, single instance, `get_api_info` command, placeholder icons.
-10. `ui/`: Svelte 5 scaffold with empty Dashboard/Apps/Rules/Settings routes,
-    `toast.html`/`overlay.html` placeholders, `api.ts` showing "tracking: <exe>".
-11. `extension/`: manifest base + build script, `background.ts` flushing to
-    `/ext/events`, `queue.ts`, `api.ts`, options page with token field.
-12. Root `package.json` with `@tauri-apps/cli`; `npm install` at root, `ui/`,
-    `extension/`.
-13. Update `PLAN.md`/`CHANGELOG.md`; commit with the configured git user.
+Milestone coverage:
+- **M1 Tracking**: done. Idle (backdated), lock and sleep gaps, WTS session
+  + power events on a message-only window, UWP via ApplicationFrameHost child
+  windows, package family names, daily totals, timeline and per-app
+  dashboard, retention pruning, day split at `day_start`.
+- **M2 Gaming**: mostly done. Steam `RunningAppID` + `steamapps\common`,
+  launcher path heuristics, built-in known-exe list, categorization UI (apps
+  table, custom categories), category stats. Missing: `appmanifest_*.acf`
+  game names, user-editable `known_games.toml`.
+- **M3 Rules + nags**: done. Engine with interval / daily_total /
+  continuous / schedule, escalation, snooze limits, skip, start break,
+  reading mode, counters persisted across restarts; toast and per-monitor
+  overlay windows; `lock` via `LockWorkStation`; TOML rule editor with
+  validation and hot reload; nag history.
+- **M4 Extension**: done except store packaging. Pairing flow, queue with
+  backoff, heartbeat, `WebSegmenter`, web stats page, incognito opt-in.
+- **M5 Linux**, **M6 Polish**: not started (`linux.rs` is a stub).
 
-M0 acceptance: `cargo build --workspace`, `cargo test --workspace`, clippy and
-fmt clean; `npm run tauri dev` shows the tray and a dashboard with the live
-foreground exe; `/v1/health` answers and `/v1/state` without a token returns
-401; `npm run ext:build` emits both manifests.
+## Next steps
+
+1. Try it for real: `npm run tauri dev`, check the tray menu, load the
+   extension in Chrome and Firefox and pair it, live with the defaults for a
+   few days and tune `min_segment_ms`, `idle_after_s` and the rules.
+2. Exclusive-fullscreen handling for overlays (see risks): detect via
+   `is_fullscreen` + `SHQueryUserNotificationState`, fall back to a sound and
+   tray notice, re-raise when the game loses the foreground.
+3. M2 leftovers: Steam `appmanifest_*.acf` names as display names; a
+   `known_games.toml` in the data directory merged with the built-in list.
+4. Dashboard: week/month views (daily stacked bars from `/stats/daily`),
+   per-rule enable toggle, autostart toggle (`Platform::set_autostart`).
+5. M6: NSIS installer check, CI (Windows build + tests, `ui:check`,
+   `ext:check`), code signing, DB backup/export.
 
 ## Later milestones
 
-- **M1 Tracking complete**: idle/lock/sleep gaps, WTS session + power events,
-  UWP name resolution, daily totals, timeline and per-app dashboard, retention.
-- **M2 Gaming detection**: Steam `RunningAppID` + `appmanifest_*.acf` names,
-  launcher path heuristics, `known_games.toml`, categorization UI, category stats.
-- **M3 Rules + nags**: full engine, toast and overlay windows per monitor, lock
-  via `LockWorkStation`, snooze/skip, reading mode, rule editor UI, nag history.
-- **M4 Extension**: pairing flow, queue/heartbeat, `WebSegmenter`, web stats page,
-  Chrome/Firefox store packaging.
 - **M5 Linux**: `LinuxPlatform` (X11 via `x11rb` + XScreenSaver idle; Wayland via
   `ext-idle-notify-v1` + foreign-toplevel/portal), logind lock via D-Bus, AppImage/deb.
-- **M6 Polish**: autostart plugin, NSIS installer, code signing, CI, DB
-  backup/export, high-DPI overlay checks.
+- **M6 Polish**: NSIS installer, code signing, CI, DB backup/export, high-DPI
+  overlay checks, extension store packaging.
 
 ## Risks and open questions
 
@@ -256,6 +259,9 @@ foreground exe; `/v1/health` answers and `/v1/state` without a token returns
 - **Tauri 2**: keep Tauri's runtime separate from the tracking runtime and
   cross only via channels in `nag_bridge.rs`; Per-Monitor V2 DPI means
   physical pixels when comparing rects.
+- **Found while building**: anti-cheat protected games refuse token queries
+  and show as elevated (harmless); a hidden-desktop process can still add a
+  tray icon to the user's taskbar (use `--no-tray` in tests).
 - **Open**: product name; whether `lock` should ever be on by default; store
   packaging identity for the extension; whether a headless service build is
   wanted before M5.

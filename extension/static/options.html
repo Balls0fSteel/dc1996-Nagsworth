@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>activity_nagger</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 16px; min-width: 300px; }
+      h1 { font-size: 16px; margin: 0 0 8px; }
+      .muted { color: #667085; }
+      .ok { color: #059669; }
+      .err { color: #dc2626; }
+      input[type="text"] { font-size: 20px; letter-spacing: 4px; width: 9em; padding: 4px 8px; }
+      button { font: inherit; padding: 6px 12px; }
+      section { margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>activity_nagger</h1>
+    <p id="status" class="muted">Checking…</p>
+    <section id="pair">
+      <p class="muted">In the app's dashboard open Settings, click "Show pairing code", and enter the code here.</p>
+      <form id="pair-form">
+        <input id="code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="off" />
+        <button type="submit">Pair</button>
+      </form>
+      <p id="pair-msg"></p>
+    </section>
+    <section>
+      <label><input id="incognito" type="checkbox" /> Also report incognito / private tabs</label>
+    </section>
+    <section id="paired-actions" hidden>
+      <button id="unpair">Unpair</button>
+      <span id="queued" class="muted"></span>
+    </section>
+    <script src="options.js"></script>
+  </body>
+</html>
