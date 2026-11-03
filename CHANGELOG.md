@@ -2,6 +2,16 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-03_231552_1793744152: Local build and run scripts
+
+- Root helper scripts for Windows, git-ignored at the owner's request:
+  `1_build.bat` (release or `debug`, no installer), `2_run.bat` (builds if
+  needed, starts it), `3_build_installer.bat` (NSIS setup),
+  `4_run_installer.bat` (the newest setup, switches such as `/S` passed on),
+  `5_dev.bat` (`tauri dev`), and `_deps.bat` (npm installs when missing).
+- Checked: 1 and 3 build; 2 started the release build on the hidden desktop
+  (API answered); 4's setup lookup run as a dry copy (not installed here).
+
 ## 2026-11-03_230747_1793743667: Linux and Windows checked on the test VMs
 
 - Xubuntu 26.04 VM: installed the Tauri build libraries, Node, sway, foot,

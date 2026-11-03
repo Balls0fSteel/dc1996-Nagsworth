@@ -8,3 +8,7 @@ node_modules/
 /src-tauri/gen/
 .DS_Store
 /src-tauri/tauri.signing.json
+
+# Local build and run helpers (1_build.bat ...)
+/[0-9]_*.bat
+/_deps.bat

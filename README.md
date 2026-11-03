@@ -38,6 +38,10 @@ npm --prefix extension install
 npm run tauri dev
 ```
 
+On Windows, local helper scripts in the root (kept out of git) wrap these: `1_build.bat` (release, or `debug`),
+`2_run.bat`, `3_build_installer.bat`, `4_run_installer.bat` (`/S` for silent)
+and `5_dev.bat`.
+
 `npm run tauri build` makes an installer (NSIS on Windows, `.deb` and
 AppImage on Linux); see [docs/RELEASING.md](docs/RELEASING.md) for releases,
 signing and the extension store packages (`npm run ext:package`).
