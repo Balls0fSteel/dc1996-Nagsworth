@@ -1,6 +1,6 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_110045_1793790045
+Last updated: 2026-11-04_133502_1793795702
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
@@ -317,6 +317,18 @@ ns-api and ns-storage tests) and a real controller (docs/MANUAL_CHECKS.md
 Windows, a hands-on series on History, `input_window_s` needs a restart
 (the segmenter reads it once), a UI control for `tracking.gamepad`.
 
+## Extension 0.2 brief (2026-11-04_133502_1793795702)
+
+docs/EXTENSION_V2.md is a build brief for the next extension version, to be
+handed to its own implementation session (Opus 5.5, medium effort). The
+0.1 extension (M4) stays as it is; the brief covers tracking edge cases
+(unreadable private windows, start-up heartbeat, worker restarts), faster
+port discovery, a real toolbar popup (status, today's sites, rule
+progress, controls, optional badge), options-page additions, vitest unit
+tests, store readiness (`web-ext lint`, AMO source zip, listing, permission
+and privacy texts) and a popup check in `tools/ext_e2e.ps1`. Out of scope:
+Safari, per-site rules, in-browser nags, store submission.
+
 ## Next steps
 
 0. Run the checks in docs/MANUAL_CHECKS.md, first "Hands-on gaming time"
@@ -329,6 +341,7 @@ Windows, a hands-on series on History, `input_window_s` needs a restart
 4. Check the Nagsworth name against domains, trademarks and the extension
    stores, then get a code signing certificate and submit
    the extension to the stores (docs/RELEASING.md).
+3a. Build extension 0.2 from docs/EXTENSION_V2.md in its own session.
 4a. Tag `v0.1.0` (or bump first): the release workflow's runner test and
    the draft release with `SHA256SUMS`; publish it, then check that an
    installed 0.1.0 offers the next release (docs/MANUAL_CHECKS.md).

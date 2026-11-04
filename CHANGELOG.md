@@ -2,6 +2,21 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_133502_1793795702: Extension 0.2 build brief
+
+- docs/EXTENSION_V2.md: a self-contained brief for the next extension
+  version, written so an implementation session can take it as its whole
+  task. It records what the 0.1 extension already does and the host API it
+  uses, then lists the work: `focus_lost` when the focused window cannot be
+  read (private windows without permission keep the last tab accruing
+  today), a heartbeat at start-up, the retry deadline in `storage.session`
+  across service-worker restarts, parallel port probing, a toolbar popup
+  separate from the options page, options additions (badge toggle, "Forget
+  everything", the private-window permission hint), vitest tests with a
+  fake WebExtension API, `web-ext lint` in `ext:check`, an AMO source zip,
+  store listing texts, and a popup screenshot in `tools/ext_e2e.ps1`.
+- No code changed. PLAN.md links the brief under "Next steps".
+
 ## 2026-11-04_110045_1793790045: License change to PolyForm Noncommercial
 
 - `LICENSE.md` holds PolyForm Noncommercial 1.0.0 (verbatim from
