@@ -2,6 +2,13 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_080403_1793779443: GitHub repository
+
+- The repository is https://github.com/Balls0fSteel/dc1996-Nagsworth (public,
+  empty when added). Added it as remote `origin` and pointed the workspace
+  `repository` field at it. History checked for keys and tokens before the
+  first push: none found. Not pushed yet.
+
 ## 2026-11-04_080211_1793779331: Renamed to Nagsworth
 
 - Product name chosen: Nagsworth (shortlisted and checked against crates.io,

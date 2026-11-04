@@ -1,11 +1,12 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_080211_1793779331
+Last updated: 2026-11-04_080403_1793779443
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
 `nagsworth` (binary, data folder, npm packages); crates use the prefix `ns-`.
 The repository folder on this PC is still `L:\dev\foss\activity_nagger`.
+GitHub: https://github.com/Balls0fSteel/dc1996-Nagsworth (public; remote `origin`).
 
 ## Vision
 
@@ -236,7 +237,7 @@ docs/MANUAL_CHECKS.md):
   the web segmenter's foreground logic is unit-tested).
 - The tray menu clicked by hand (tray creation itself is logged).
 - An exclusive-fullscreen game during a nag (deferral logic is unit-tested).
-- CI and release workflows on GitHub (no remote yet; the Windows job's steps
+- CI and release workflows on GitHub (remote added, nothing pushed yet; the Windows job's steps
   pass locally, the Linux job cannot run here), signing with a real
   certificate, store submissions.
 
@@ -270,7 +271,7 @@ Milestone coverage:
 0. Run the checks in docs/MANUAL_CHECKS.md.
 1. Use it for a few days: load the extension, pair it, tune
    `min_segment_ms`, `idle_after_s` and the rules.
-2. Push to GitHub and let CI run; fix anything the Linux job finds.
+2. Push `main` to `origin` and let CI run; fix anything the Linux job finds.
 3. Try it in a real Linux desktop session (tray in a panel, KDE, GNOME).
 4. Check the Nagsworth name against domains, trademarks and the extension
    stores, then get a code signing certificate and submit

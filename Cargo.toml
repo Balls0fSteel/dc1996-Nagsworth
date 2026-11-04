@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/TheDuke/nagsworth"
+repository = "https://github.com/Balls0fSteel/dc1996-Nagsworth"
 
 [workspace.dependencies]
 ns-core = { path = "crates/ns-core" }
