@@ -1,6 +1,6 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_104856_1793785736
+Last updated: 2026-11-04_110045_1793790045
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
@@ -10,7 +10,7 @@ GitHub: https://github.com/Balls0fSteel/dc1996-Nagsworth (public; remote `origin
 
 ## Vision
 
-Two apps in one, open source, for a single user's PC:
+Two apps in one, source-available (D25), for a single user's PC:
 
 1. **Activity tracker**: which apps are in the foreground and for how long
    (process, window title, idle detection), how much time goes to gaming
@@ -32,7 +32,7 @@ Two apps in one, open source, for a single user's PC:
 | D4 | Frontend: Svelte 5 + TypeScript + Vite, multi-page (`index.html` dashboard, `toast.html`, `overlay.html`, `pair.html`). |
 | D5 | Browser extension (Manifest V3, Chrome + Firefox) talks to a local HTTP API (`axum`) on `127.0.0.1:47821` with a bearer token; the same API serves the dashboard and future clients. Fixed port with a short fallback list the extension probes (extensions cannot read a discovery file). |
 | D6 | No global hooks, no injection, no reading other processes' memory (antivirus-friendly). Idle via `GetLastInputInfo`; Steam detection via `HKCU\Software\Valve\Steam\RunningAppID`. The `lock` escalation level calls `LockWorkStation()` rather than trying to build an inescapable overlay. |
-| D7 | Defaults on open points: window titles are stored even when the extension is paired (`tracking.store_titles` toggle); `lock` level is supported but commented out in shipped rules; one DB per Windows user under `%LOCALAPPDATA%\nagsworth\`; license MIT OR Apache-2.0. |
+| D7 | Defaults on open points: window titles are stored even when the extension is paired (`tracking.store_titles` toggle); `lock` level is supported but commented out in shipped rules; one DB per Windows user under `%LOCALAPPDATA%\nagsworth\`; license MIT OR Apache-2.0 at first, replaced by PolyForm Noncommercial (D25). |
 | D8 | Tauri CLI is a project devDependency (`@tauri-apps/cli` in root `package.json`, run via `npm run tauri`), not a global install. |
 | D9 | Product name Nagsworth (2026-11-04): crates `ns-*`, binary and data folder `nagsworth`, Tauri identifier `org.nagsworth.app`, Firefox id `nagsworth@nagsworth.org`, env vars `NAGSWORTH_DATA_DIR` / `NAGSWORTH_PYTHON`. Checked free on crates.io, npm and GitHub; domains, trademarks and the extension stores not checked. |
 
@@ -46,7 +46,7 @@ dev-folder notes).
 ```
 nagsworth/
   Cargo.toml                 # [workspace] members = ["crates/*", "src-tauri"], resolver 2, [workspace.dependencies]
-  rust-toolchain.toml  rustfmt.toml  .editorconfig  .gitignore  LICENSE-MIT  LICENSE-APACHE
+  rust-toolchain.toml  rustfmt.toml  .editorconfig  .gitignore  LICENSE.md
   package.json               # devDeps: @tauri-apps/cli; scripts: tauri, ui:dev, ui:build, ext:build
   AGENTS.md  PLAN.md  CHANGELOG.md  README.md
   docs/ARCHITECTURE.md  docs/DECISIONS.md  docs/BACKLOG.md

@@ -499,7 +499,7 @@
         </a>
       </dd>
       <dt>License</dt>
-      <dd>MIT OR Apache-2.0</dd>
+      <dd>PolyForm Noncommercial 1.0.0</dd>
     </dl>
   </Card>
 </div>

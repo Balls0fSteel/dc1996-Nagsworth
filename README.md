@@ -1,6 +1,6 @@
 # Nagsworth
 
-Nagsworth is an open source activity tracker and break nagger for your own PC:
+Nagsworth is a source-available activity tracker and break nagger for your own PC:
 Windows, plus a Linux backend for X11 and wlroots Wayland compositors. Think of
 a polite butler who keeps a note of your hours and clears his throat when it is
 time for a break.
@@ -149,4 +149,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the pieces fit and
 
 ## License
 
-MIT OR Apache-2.0, at your option.
+PolyForm Noncommercial 1.0.0, see [LICENSE.md](LICENSE.md). You may use,
+study, change and share Nagsworth for personal, hobby, research, educational
+and non-profit purposes. Commercial use (selling it, bundling it into a
+product, offering it as a paid service, using it in a business) needs a
+separate license from the author. Copies and derived works must keep the
+license terms and the notice below.
+
+Required Notice: Copyright 2026 TheDuke (https://github.com/Balls0fSteel/dc1996-Nagsworth)

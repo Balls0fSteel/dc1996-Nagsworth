@@ -2,6 +2,20 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_110045_1793790045: License change to PolyForm Noncommercial
+
+- `LICENSE.md` holds PolyForm Noncommercial 1.0.0 (verbatim from
+  polyformproject/polyform-licenses tag 1.0.0); `LICENSE-MIT` and
+  `LICENSE-APACHE` are gone. D25 records the reasoning: personal and
+  non-profit use stays free, commercial use needs the author's permission,
+  and copies must carry the terms plus the `Required Notice:` line now in
+  README.md.
+- SPDX id `PolyForm-Noncommercial-1.0.0` in the workspace `Cargo.toml` and
+  root `package.json`; the Settings "About" card, README and PLAN say
+  "source-available" instead of "open source".
+- Commits before this one were published under MIT OR Apache-2.0 and remain
+  so for anyone who already copied them.
+
 ## 2026-11-04_104856_1793785736: Hands-on time, input-gated gaming limits
 
 - Design in docs/HANDS_ON_TIME.md (D24): a gaming limit should protect
