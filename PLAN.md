@@ -1,6 +1,6 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_133502_1793795702
+Last updated: 2026-11-04_222508_1793831108
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
@@ -343,6 +343,23 @@ minimum is now 140 (AMO's `data_collection_permissions`). Open:
   checked; the listing texts are written.
 - The popup reads state once when it opens; it does not refresh while open.
 
+## Break exercises brief (2026-11-04_222508_1793831108)
+
+docs/EXERCISES.md is a build brief for exercises during breaks: a
+catalogue of 28 items (14 seated micro items, 14 standing ones, four
+behind `band` / `stairs` / `floor` flags), each graded A/B/C by the
+published evidence for sitting-related cardiometabolic risk, neck and
+shoulder pain, eye strain and stress; a pure planner in `ns-rules` that
+builds a routine from the break length, the time sat since the last real
+break (the walk scales 1 to 5 min after Diaz 2023) and the day's total,
+with a seeded, persisted rotation; `NagEvent::BreakStarted.routine`, a
+`routine` column on `nag_events`, `GET /v1/exercises`, the overlay step
+list with per-step countdowns, the toast cue, and a Settings > Exercises
+card. Left out on purpose: soleus push-ups as a headline, palming, neck
+circles, nerve gliding. Nothing is built; open questions (a 30 min
+"move" rule, audio cues, completion tracking, the band tier) are at the
+end of the brief.
+
 ## Next steps
 
 0. Run the checks in docs/MANUAL_CHECKS.md, first "Hands-on gaming time"
@@ -362,6 +379,8 @@ minimum is now 140 (AMO's `data_collection_permissions`). Open:
    installed 0.1.0 offers the next release (docs/MANUAL_CHECKS.md).
 5. Backlog items: KDE Wayland window tracking, a structured rule editor
    (docs/BACKLOG.md).
+6. Break exercises: decide the open questions in docs/EXERCISES.md, then
+   hand the brief to an implementation session.
 
 ## Risks and open questions
 

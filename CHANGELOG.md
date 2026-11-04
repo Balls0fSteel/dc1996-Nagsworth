@@ -2,6 +2,22 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_222508_1793831108: Break exercises design brief
+
+- docs/EXERCISES.md: what to show during a break instead of "Stand up,
+  look away, stretch." Written after a literature pass (sources listed in
+  the brief): light walking beats standing for glucose and insulin
+  (meta-analysis), 5 min every 30 min is the dose that also lowers blood
+  pressure, 3 min of squats matches 3 min of walking, strength work has
+  the best evidence for neck and shoulder pain, stretches and the
+  20-20-20 rule help symptoms in small trials, cyclic sighing has one RCT.
+  The brief grades every item, excludes the hyped or unsupported ones
+  (soleus push-ups, palming, neck circles, nerve gliding for prevention),
+  and specifies a 28-item catalogue in `config/exercises.toml`, a pure
+  planner and rotation in `ns-rules`, the engine, storage, API and UI
+  hooks, work items with acceptance checks, and five open questions.
+- No code changed. PLAN.md links the brief under "Next steps".
+
 ## 2026-11-04_140801_1793797681: Browser extension 0.2 (docs/EXTENSION_V2.md)
 
 - **Tracking edges** (`background.ts`): a focused window with no readable
