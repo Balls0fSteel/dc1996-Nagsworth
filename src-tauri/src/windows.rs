@@ -12,6 +12,8 @@ const OVERLAY_PREFIX: &str = "overlay-";
 
 const TOAST_W: f64 = 380.0;
 const TOAST_H: f64 = 210.0;
+const TOAST_MIN_H: f64 = 120.0;
+const TOAST_MAX_H: f64 = 520.0;
 const TOAST_MARGIN: f64 = 16.0;
 
 pub fn show_dashboard<R: Runtime>(app: &AppHandle<R>) {
@@ -74,18 +76,38 @@ fn open_toast<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .focused(false)
         .visible(false)
         .build()?;
-    // Bottom-right of the primary monitor's work area, in physical pixels.
-    if let Some(m) = app.primary_monitor()? {
-        let scale = m.scale_factor();
-        let area = m.work_area();
-        let w_px = (TOAST_W * scale) as i32;
-        let h_px = (TOAST_H * scale) as i32;
-        let margin = (TOAST_MARGIN * scale) as i32;
-        let x = area.position.x + area.size.width as i32 - w_px - margin;
-        let y = area.position.y + area.size.height as i32 - h_px - margin;
-        w.set_position(PhysicalPosition::new(x, y))?;
-    }
+    place_toast(app, &w, TOAST_H)?;
     w.show()
+}
+
+/// Sizes the toast to `height` logical pixels (the page asks for its content
+/// height, so the transparent window never covers more than the cards) and
+/// keeps it in the bottom-right corner of the primary monitor's work area.
+pub fn resize_toast<R: Runtime>(app: &AppHandle<R>, height: f64) -> tauri::Result<()> {
+    if let Some(w) = app.get_webview_window(TOAST) {
+        place_toast(app, &w, height.clamp(TOAST_MIN_H, TOAST_MAX_H))?;
+    }
+    Ok(())
+}
+
+fn place_toast<R: Runtime>(
+    app: &AppHandle<R>,
+    w: &WebviewWindow<R>,
+    height: f64,
+) -> tauri::Result<()> {
+    // Physical pixels throughout, so mixed-DPI setups place it right.
+    let Some(m) = app.primary_monitor()? else {
+        return Ok(());
+    };
+    let scale = m.scale_factor();
+    let area = m.work_area();
+    let w_px = (TOAST_W * scale) as u32;
+    let h_px = (height * scale) as u32;
+    let margin = (TOAST_MARGIN * scale) as i32;
+    w.set_size(PhysicalSize::new(w_px, h_px))?;
+    let x = area.position.x + area.size.width as i32 - w_px as i32 - margin;
+    let y = area.position.y + area.size.height as i32 - h_px as i32 - margin;
+    w.set_position(PhysicalPosition::new(x, y))
 }
 
 fn open_overlays<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {

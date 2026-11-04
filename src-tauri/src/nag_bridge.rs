@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use ns_core::{Event, EventBus, NagEvent, NagLevel, Timestamp};
 use ns_platform::Platform;
-use ns_rules::EngineSnapshot;
+use ns_rules::{EngineSnapshot, NagState};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{broadcast, watch};
@@ -88,6 +88,14 @@ impl NagBridge {
                     break_until: None,
                 });
                 entry.break_until = Some(*until);
+                // A break started from the tray or dashboard was never raised,
+                // so take the length from the snapshot for the progress ring.
+                if entry.break_for_ms.is_none() {
+                    entry.break_for_ms = rule
+                        .map(|r| r.break_ms)
+                        .filter(|b| *b > 0)
+                        .map(|b| b as u64);
+                }
                 // Several break rules may start together; show one countdown.
                 let longest = nags
                     .values()
@@ -110,6 +118,34 @@ impl NagBridge {
             }
         }
         true
+    }
+
+    /// Rebuilds the open nags from the engine snapshot. The engine starts
+    /// before the Tauri bridge subscribes to the bus, so a rule that is
+    /// already nagging or on a break at start (persisted counters) would
+    /// otherwise never get a window. Returns true if anything was added.
+    fn seed(&self, engine: &EngineSnapshot) -> bool {
+        let mut added = false;
+        for rule in &engine.rules {
+            let event = match rule.state {
+                NagState::Active { level, since } => NagEvent::Raise {
+                    rule_id: rule.id.clone(),
+                    rule_name: rule.name.clone(),
+                    level,
+                    message: rule.message.clone(),
+                    at: since,
+                    break_for_ms: (rule.break_ms > 0).then_some(rule.break_ms as u64),
+                    snoozes_left: rule.snoozes_left,
+                },
+                NagState::InBreak { until } => NagEvent::BreakStarted {
+                    rule_id: rule.id.clone(),
+                    until,
+                },
+                _ => continue,
+            };
+            added |= self.apply(&event, engine);
+        }
+        added
     }
 
     fn wants(&self) -> (bool, bool) {
@@ -137,6 +173,9 @@ impl NagBridge {
             let mut recheck = tokio::time::interval(Duration::from_secs(1));
             let mut deferred = false;
             let mut shown = (false, false);
+            if bridge.seed(&engine.borrow()) {
+                let _ = app.emit("nags-changed", bridge.current());
+            }
             loop {
                 tokio::select! {
                     event = rx.recv() => {
@@ -218,6 +257,58 @@ mod tests {
             break_for_ms: Some(1000),
             snoozes_left: 1,
         }
+    }
+
+    #[test]
+    fn seeds_from_a_snapshot_at_start() {
+        use ns_rules::RuleSnapshot;
+        let mut snap = EngineSnapshot::default();
+        snap.rules.push(RuleSnapshot {
+            id: "a".into(),
+            name: "A".into(),
+            trigger: "interval".into(),
+            enabled: true,
+            state: NagState::Active {
+                level: NagLevel::Toast,
+                since: 5,
+            },
+            accum_ms: 0,
+            target_ms: 10,
+            rest_ms: 0,
+            break_ms: 600_000,
+            snoozes_left: 2,
+            message: "m".into(),
+        });
+        snap.rules.push(RuleSnapshot {
+            id: "b".into(),
+            name: "B".into(),
+            trigger: "interval".into(),
+            enabled: true,
+            state: NagState::InBreak { until: 99 },
+            accum_ms: 0,
+            target_ms: 10,
+            rest_ms: 0,
+            break_ms: 30_000,
+            snoozes_left: 0,
+            message: String::new(),
+        });
+        let b = NagBridge::default();
+        assert!(b.seed(&snap));
+        let nags = b.current();
+        assert_eq!(nags.len(), 2);
+        let a = nags.iter().find(|n| n.rule_id == "a").unwrap();
+        assert_eq!(
+            (a.level, a.break_for_ms, a.snoozes_left),
+            (NagLevel::Toast, Some(600_000), 2)
+        );
+        let brk = nags.iter().find(|n| n.rule_id == "b").unwrap();
+        assert_eq!(
+            (brk.break_until, brk.break_for_ms),
+            (Some(99), Some(30_000))
+        );
+        // The running break takes the overlay; the toast rule waits.
+        assert_eq!(b.wants(), (false, true));
+        assert!(!NagBridge::default().seed(&EngineSnapshot::default()));
     }
 
     #[test]

@@ -98,6 +98,15 @@ use `cargo run -p ns-platform --example probe` to check foreground detection.
 `run_hidden.ps1` does not work inside `Start-Job`; run it in the foreground and
 put API calls in the job instead.
 
+For UI work, `tools/seed_demo.py <data dir>\activity.db [days]` fills a
+scratch database with two weeks of plausible apps, segments, web visits and
+nag events (run it while the app is stopped), and `npm run ui:dev` plus
+`http://localhost:5173/?port=47821&token=<token>` shows the dashboard in a
+browser against the running app. `run_hidden.ps1 -Screenshot` skips tool
+and non-activating windows, so it never pictures the toast; enumerate the
+process's windows on the `AgentHidden` desktop yourself (`EnumDesktopWindows`
++ `PrintWindow`) to capture it.
+
 ### Extension end to end
 
 ```powershell

@@ -101,6 +101,7 @@ pub fn run() {
             commands::current_nags,
             commands::nag_action,
             commands::open_dashboard,
+            commands::resize_toast,
             commands::get_autostart,
             commands::set_autostart,
         ])

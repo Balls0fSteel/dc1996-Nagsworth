@@ -2,6 +2,50 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_093504_1793781304: UI design pass
+
+- Design system in `ui/src/app.css` (light/dark tokens, buttons, switch,
+  cards, pills, tables, empty states, focus rings) and components in
+  `ui/src/lib/ui/` (Card, Empty, Switch, Segmented, StatTile, Tooltip,
+  Toasts, Icon with inline SVG icons in `lib/icons.ts`), an in-page notice
+  store (`lib/notify.svelte.ts`) and a page-toolbar slot (`lib/page.svelte.ts`).
+- Shell: left sidebar with icons (icon rail under 900 px), live status
+  block with Break now / Pause / Reading mode, connection banner, keys 1-6.
+- Today: stat tiles, rules with scope and state chips, hover actions and
+  colored progress, stacked category bar, timeline with hour ticks, hover
+  tooltip, legend and "now" marker, ranked apps table. New History page:
+  stacked per-day chart (7/14/30/90 days, pure SVG), totals, averages,
+  click-through to a day. Apps: search, kind filter, games-only, sort,
+  inline rename, switches, source chips. Web: range tiles, letter avatars,
+  pairing empty state. Rules: rule cards (trigger summary, scope, idle
+  policy, escalation ladder, snooze, live state, enable toggle that edits
+  the TOML block) and a config editor with line numbers, Ctrl+S and a
+  validation banner; nag history with chips. Settings: cards for the
+  extension (code with copy button and expiry bar, online chips), startup,
+  data export/backup, local API, about.
+- Nag windows: toast card with accent stripe, entrance animation and up to
+  three stacked cards; the page reports its content height and the app
+  sizes the window to it (new `resize_toast` command, `place_toast` in
+  `windows.rs`), so the transparent window never covers more than the
+  cards. Overlay with an indigo gradient, SVG progress ring around the
+  countdown, Esc to skip. Pairing window with steps, copy button and expiry
+  bar.
+- Fixed in the bridge: a nag already active or on a break when the app
+  starts (persisted counters) never got a window, because the engine
+  raised it before the Tauri bridge subscribed to the bus; the bridge now
+  seeds its list from the engine snapshot (`NagBridge::seed`, tested).
+  A break started from the tray or dashboard had no length in its
+  `NagView`, so the overlay could not draw the ring; it now takes
+  `break_ms` from the snapshot.
+- `tools/seed_demo.py` fills a scratch database with demo data for UI
+  checks (documented in AGENTS.md, with a note that `run_hidden.ps1`'s
+  screenshot skips the toast's tool window).
+- Checked: `ui:check`, `ui:build`, fmt, clippy `-D warnings`, 60 tests;
+  all pages in the Vite dev server against the running app with seeded
+  data, light and dark, at 640, 800 and 1200 px; the Tauri debug build on
+  the hidden desktop: dashboard, toast (380x145 after the resize) and the
+  break overlay with the ring on both monitors; pairing page at 420x300.
+
 ## 2026-11-04_081147_1793779907: First push and CI on GitHub
 
 - Pushed `main` to https://github.com/Balls0fSteel/dc1996-Nagsworth. The

@@ -1,6 +1,6 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_081147_1793779907
+Last updated: 2026-11-04_093504_1793781304
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
@@ -266,6 +266,19 @@ Milestone coverage:
   (docs/RELEASING.md), CSV/JSON export, database backup, mixed-DPI overlay
   check, exclusive-fullscreen deferral (beep + tray tooltip).
 
+## UI pass (2026-11-04_093504_1793781304)
+
+Done, see docs/UI_DESIGN.md: design tokens and components (`ui/src/lib/ui`),
+sidebar shell, Today with stat tiles and a hoverable timeline, a new History
+page (stacked daily chart, pure SVG), Apps with search/filter/inline rename,
+Web with site avatars, Rules as cards with per-rule toggles plus the config
+editor with line numbers and Ctrl+S, Settings cards, redesigned toast
+(sized to content), overlay (progress ring) and pairing window. Checked in
+the browser (both color schemes, 640/800/1200 px) and in the built app on
+the hidden desktop (dashboard, toast, break overlay on both monitors).
+Not checked by hand: the toast's entrance animation and the hover actions
+with a real mouse; see docs/MANUAL_CHECKS.md.
+
 ## Next steps
 
 0. Run the checks in docs/MANUAL_CHECKS.md.
@@ -277,8 +290,8 @@ Milestone coverage:
 4. Check the Nagsworth name against domains, trademarks and the extension
    stores, then get a code signing certificate and submit
    the extension to the stores (docs/RELEASING.md).
-5. Backlog items: week/month charts, per-rule toggle, KDE Wayland window
-   tracking (docs/BACKLOG.md).
+5. Backlog items: KDE Wayland window tracking, a structured rule editor
+   (docs/BACKLOG.md).
 
 ## Risks and open questions
 

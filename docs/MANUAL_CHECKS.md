@@ -24,7 +24,7 @@ Left-clicking the icon opens the dashboard; the tooltip names the app in front.
 
 ## Nag during an exclusive-fullscreen game (Windows)
 
-1. In the Rules tab, add a quick test rule and save:
+1. In the Rules tab (Config file view), add a quick test rule and save:
 
    ```toml
    [[rules]]
@@ -56,7 +56,7 @@ Build on the target machine (WebKitGTK packages as in
   works and the tooltip updates.
 
 - X11 session, and a wlroots Wayland compositor (Sway, Hyprland): the
-  dashboard header shows the app in front; switching apps changes it within
+  dashboard's sidebar status shows the app in front; switching apps changes it within
   a few seconds; leaving the machine alone for `idle_after_s` shows "idle".
 - `cargo run -p ns-platform --example probe` prints the focused app, idle
   time and Steam state.

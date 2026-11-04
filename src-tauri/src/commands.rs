@@ -50,6 +50,12 @@ pub fn open_dashboard(app: AppHandle) {
     windows::show_dashboard(&app);
 }
 
+/// The toast page reports its content height so the window fits the cards.
+#[tauri::command]
+pub fn resize_toast(app: AppHandle, height: f64) -> Result<(), String> {
+    windows::resize_toast(&app, height).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn get_autostart(ctx: State<'_, AppCtx>) -> Result<bool, String> {
     ctx.platform.autostart().map_err(|e| e.to_string())

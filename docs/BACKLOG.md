@@ -23,8 +23,8 @@
 
 ## Deferred
 
-- Rule editor UI beyond the TOML editor; per-rule enable toggle.
-- Week/month charts (data is in `/stats/daily`).
+- Structured rule editor (rules are shown as cards with an enable toggle;
+  editing still happens in the TOML editor).
 - Sound choice per rule; per-rule quiet hours.
 - Flatpak package ids on Linux (cgroup lookup); KDE Wayland window tracking
   (`org_kde_plasma_window_management`).

@@ -133,6 +133,67 @@ export interface NagLogEntry {
   at: number;
 }
 
+/** A humantime duration as the config writes it, e.g. "50m", "1h 30m", "0s". */
+export type HumanDuration = string;
+
+/** `Trigger` in `crates/ns-rules/src/rule.rs`: internally tagged by `kind`. */
+export type TriggerDef =
+  | { kind: "interval"; every: HumanDuration; break_for: HumanDuration }
+  | { kind: "daily_total"; limit: HumanDuration; renag_every: HumanDuration }
+  | { kind: "continuous"; limit: HumanDuration; reset_after: HumanDuration }
+  /** Windows are "HH:MM-HH:MM"; the end may be before the start (wraps midnight). */
+  | { kind: "schedule"; windows: string[] };
+
+/** `Scope`: the string "any", `{ category }` or `{ app }` (an exe name). */
+export type ScopeDef = "any" | { category: CategoryKind } | { app: string };
+
+export type IdlePolicy = "pause" | "ignore";
+
+export interface EscalationStep {
+  after: HumanDuration;
+  level: NagLevel;
+}
+
+export interface SnoozeDef {
+  duration: HumanDuration;
+  max_per_day: number;
+}
+
+/** A `[[rules]]` table as `GET /rules` returns it (serde of `Rule`). */
+export interface RuleDef {
+  id: string;
+  name: string | null;
+  enabled: boolean;
+  scope: ScopeDef;
+  trigger: TriggerDef;
+  /** `null` means the default: `ignore` for the Game category, `pause` otherwise. */
+  idle_policy: IdlePolicy | null;
+  escalation: EscalationStep[];
+  /** `null` means the default: 5m, 3 per day. */
+  snooze: SnoozeDef | null;
+  message: string | null;
+}
+
+export interface RulesResponse {
+  toml: string;
+  rules: RuleDef[];
+  /** Set when the file does not parse; `rules` is then empty. */
+  error?: string;
+}
+
+export interface Health {
+  ok: boolean;
+  name: string;
+  version: string;
+}
+
+/** Per-day totals by segment kind (`KindTotal` in ns-storage). */
+export interface KindTotal {
+  day: string;
+  kind: SegmentKind;
+  ms: number;
+}
+
 export interface ApiInfo {
   base_url: string;
   token: string;
@@ -220,8 +281,14 @@ export const api = {
   categories: () => request<{ categories: Category[] }>("GET", "/categories").then((r) => r.categories),
   createCategory: (name: string, kind: CategoryKind, color?: string) =>
     request<{ category: Category }>("POST", "/categories", { name, kind, color }),
-  rules: () => request<{ toml: string; rules: unknown[]; error?: string }>("GET", "/rules"),
-  saveRules: (toml: string) => request<{ toml: string }>("PUT", "/rules", toml, true),
+  kinds: (from?: string, to?: string) =>
+    request<{ from: string; to: string; kinds: KindTotal[] }>(
+      "GET",
+      `/stats/kinds${range(from, to)}`,
+    ).then((r) => r.kinds),
+  health: () => request<Health>("GET", "/health"),
+  rules: () => request<RulesResponse>("GET", "/rules"),
+  saveRules: (toml: string) => request<RulesResponse>("PUT", "/rules", toml, true),
   nags: (limit = 50) =>
     request<{ nags: NagLogEntry[] }>("GET", `/nags?limit=${limit}`).then((r) => r.nags),
   startPairing: () => request<{ code: string; expires_at: number }>("POST", "/pair/start"),
