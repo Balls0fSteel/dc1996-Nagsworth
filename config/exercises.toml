@@ -1,0 +1,476 @@
+# Nagsworth break exercises (docs/EXERCISES.md).
+#
+# Built into the app. A file of the same shape at <data dir>\exercises.toml
+# adds items or replaces built-in ones with the same id; `enabled = false`
+# hides a built-in item. Fields:
+#   id        unique, used in [exercises] exclude
+#   tags      eyes, neck, shoulders, upper_back, wrists, lower_back, hips,
+#             legs, walk, cardio, breathing (the first one is the region)
+#   posture   seated | standing | floor
+#   seconds   one set as written in `reps`; the planner adds steps up to the
+#             break's length (a walk's seconds are its shortest length)
+#   equipment band | stairs | floor; suggested only when [exercises]
+#             equipment lists it
+#   cue       one line for the toast
+#   steps     1-4 short lines for the overlay
+#   evidence  A (meta-analysis / several RCTs), B (one RCT or several small
+#             trials), C (pre/post or single lab study, low risk)
+#   why       what it is for, with the source
+#
+# Not medical advice. Stop anything that hurts.
+
+# ---- Micro items: seated, 20-45 s ----
+
+[[exercise]]
+id = "far-focus"
+name = "Look far away"
+tags = ["eyes"]
+posture = "seated"
+seconds = 20
+reps = "20 s"
+cue = "Look at something at least 6 m away for 20 seconds."
+steps = [
+  "Look out of a window or across the room.",
+  "Pick the farthest thing you can see and keep your eyes on it.",
+  "Blink normally.",
+]
+evidence = "C"
+why = "Fewer eye strain and dry eye symptoms in computer users after two weeks of reminders (Talens-Estarelles 2022)."
+
+[[exercise]]
+id = "blink-squeeze"
+name = "Full blinks"
+tags = ["eyes"]
+posture = "seated"
+seconds = 30
+reps = "10 slow"
+cue = "Close your eyes, squeeze gently for 2 seconds, open. Ten times."
+steps = [
+  "Close both eyes.",
+  "Squeeze the lids gently for two seconds.",
+  "Open wide, then repeat ten times.",
+]
+evidence = "B"
+why = "Screens cut blinking and make blinks incomplete; a close-squeeze-open routine reduced incomplete blinks and symptoms while practised (Aston 2025)."
+
+[[exercise]]
+id = "near-far"
+name = "Near-far focus"
+tags = ["eyes"]
+posture = "seated"
+seconds = 30
+reps = "10 switches"
+cue = "Focus on your thumb at 30 cm, then on something far away. Ten times."
+steps = [
+  "Hold a thumb about 30 cm in front of your nose and focus on it.",
+  "Switch to something far across the room until it is sharp.",
+  "Switch back and forth ten times, slowly.",
+]
+evidence = "C"
+why = "Relaxes the focusing muscles held at one distance; part of the break routines that reduced digital eye strain symptoms (Talens-Estarelles 2022)."
+
+[[exercise]]
+id = "chin-tuck"
+name = "Chin tucks"
+tags = ["neck"]
+posture = "seated"
+seconds = 30
+reps = "8 x 3 s"
+cue = "Sit tall, glide your chin straight back (double chin), hold 3 s. Eight times."
+steps = [
+  "Sit tall, eyes level, shoulders loose.",
+  "Glide the chin straight back without tilting, making a double chin.",
+  "Hold three seconds, release. Eight times.",
+]
+evidence = "B"
+why = "Trains the deep neck flexors against forward head posture; small trials show less neck pain and a better head position (deep neck flexor reviews)."
+
+[[exercise]]
+id = "neck-iso"
+name = "Neck presses"
+tags = ["neck"]
+posture = "seated"
+seconds = 45
+reps = "5 s each direction, x 3"
+cue = "Press your palm against your forehead, then each side, without moving. 5 s each."
+steps = [
+  "Palm on the forehead: push the head into it, head does not move, five seconds.",
+  "Palm on the right temple, then the left: same push, five seconds each.",
+  "Hands behind the head, push back into them, five seconds. Repeat the round three times.",
+]
+evidence = "A"
+why = "Neck and shoulder strengthening is the best-supported workplace exercise for neck pain in office workers (Chen 2018 meta-analysis, GRADE moderate)."
+
+[[exercise]]
+id = "upper-trap-stretch"
+name = "Ear to shoulder"
+tags = ["neck"]
+posture = "seated"
+seconds = 40
+reps = "20 s each side"
+cue = "Tilt your ear toward one shoulder, hold 20 s, then the other side."
+steps = [
+  "Sit tall and hold the chair seat with your right hand.",
+  "Tilt the left ear toward the left shoulder until the right side of the neck stretches.",
+  "Hold 20 seconds, breathe, then the other side.",
+]
+evidence = "B"
+why = "Stretching breaks reduce neck and shoulder discomfort in sedentary work (Radwan 2022, Vitoulas 2022 reviews); hold 10-30 s per ACSM."
+
+[[exercise]]
+id = "scapular-squeeze"
+name = "Shoulder blade squeezes"
+tags = ["shoulders"]
+posture = "seated"
+seconds = 40
+reps = "10 x 3 s"
+cue = "Pull your shoulder blades together and down, hold 3 s. Ten times."
+steps = [
+  "Sit tall, arms relaxed.",
+  "Pull both shoulder blades together and slightly down, as if holding a pencil between them.",
+  "Hold three seconds, release. Ten times.",
+]
+evidence = "A"
+why = "Scapular strengthening is part of the neck and shoulder programs with moderate evidence for pain in office workers (Chen 2018; Andersen 2012)."
+
+[[exercise]]
+id = "shoulder-rolls"
+name = "Shoulder rolls"
+tags = ["shoulders"]
+posture = "seated"
+seconds = 30
+reps = "10 slow, backwards"
+cue = "Roll your shoulders up, back and down. Ten slow circles."
+steps = [
+  "Lift both shoulders toward the ears.",
+  "Roll them back and down in a slow circle.",
+  "Ten circles, all backwards.",
+]
+evidence = "B"
+why = "Mobility work in active micro-breaks reduced discomfort and fatigue compared with passive breaks (Vitoulas 2022 review)."
+
+[[exercise]]
+id = "seated-twist"
+name = "Seated spine twist"
+tags = ["upper_back"]
+posture = "seated"
+seconds = 40
+reps = "20 s each side"
+cue = "Sit tall, turn your upper body to one side holding the chair, 20 s each side."
+steps = [
+  "Sit tall, feet flat, hips facing forward.",
+  "Turn the chest to the right, right hand on the chair back, left hand on the right knee.",
+  "Hold 20 seconds breathing out into the turn, then the other side.",
+]
+evidence = "B"
+why = "Spinal stretching breaks help spinal symptoms at the office (workplace break reviews); keeps the mid-back moving after long sitting."
+
+[[exercise]]
+id = "wrist-flexor"
+name = "Wrist flexor stretch"
+tags = ["wrists"]
+posture = "seated"
+seconds = 40
+reps = "20 s each hand"
+cue = "Arm straight, palm up, pull the fingers back gently. 20 s each hand."
+steps = [
+  "Straighten one arm in front, palm up.",
+  "With the other hand, pull the fingers gently down and back until the forearm stretches.",
+  "Hold 20 seconds, then the other hand.",
+]
+evidence = "B"
+why = "Stretching programs have moderate evidence for preventing upper limb complaints in computer work (micro-break reviews); hold 10-30 s per ACSM."
+
+[[exercise]]
+id = "wrist-extensor"
+name = "Wrist extensor stretch"
+tags = ["wrists"]
+posture = "seated"
+seconds = 40
+reps = "20 s each hand"
+cue = "Arm straight, palm down, press the back of the hand toward you. 20 s each hand."
+steps = [
+  "Straighten one arm in front, palm down, fingers pointing to the floor.",
+  "With the other hand, press the back of the hand gently toward you.",
+  "Hold 20 seconds, then the other hand.",
+]
+evidence = "B"
+why = "The mouse-side forearm extensors work all day; stretching programs have moderate evidence for upper limb complaints in computer work."
+
+[[exercise]]
+id = "finger-spread"
+name = "Finger spread and fist"
+tags = ["wrists"]
+posture = "seated"
+seconds = 20
+reps = "10 slow"
+cue = "Spread your fingers wide, then make a loose fist. Ten times."
+steps = [
+  "Spread all fingers as wide as they go.",
+  "Close them into a loose fist.",
+  "Ten slow rounds, both hands.",
+]
+evidence = "C"
+why = "Moves the hand through its full range after hours on a keyboard; low risk, part of active micro-break routines."
+
+[[exercise]]
+id = "sit-stand"
+name = "Sit to stand"
+tags = ["legs"]
+posture = "seated"
+seconds = 30
+reps = "5 slow, no hands"
+cue = "Stand up from the chair and sit down slowly, without using your hands. Five times."
+steps = [
+  "Feet flat, slide forward a little on the chair.",
+  "Stand up without using your hands, then lower yourself slowly back.",
+  "Five times, slower on the way down.",
+]
+evidence = "B"
+why = "Bodyweight squatting every 45 min lowered glucose as much as walking in a continuous glucose monitor trial (Zhejiang 2023); the chair version is the easy start."
+
+[[exercise]]
+id = "cyclic-sigh"
+name = "Cyclic sighing"
+tags = ["breathing"]
+posture = "seated"
+seconds = 45
+reps = "5 breaths"
+cue = "Breathe in through the nose, sip in a little more, then a long slow breath out. Five times."
+steps = [
+  "Breathe in through the nose until the lungs feel full.",
+  "Sip in a little more air on top.",
+  "Let it all out slowly through the mouth, longer than the inhale. Five breaths.",
+]
+evidence = "B"
+why = "Five minutes a day of exhale-focused cyclic sighing improved mood and lowered breathing rate more than mindfulness in an RCT (Balban 2023)."
+
+# ---- Standing items: 45 s to 3 min ----
+
+[[exercise]]
+id = "walk"
+name = "Walk"
+tags = ["walk"]
+posture = "standing"
+seconds = 60
+reps = "1-5 min"
+cue = "Get up and walk: a lap of the flat, the hallway, the stairs."
+steps = [
+  "Stand up and walk anywhere: around the room, to the kitchen, down the corridor.",
+  "An easy pace is enough; keep moving until the time is up.",
+]
+evidence = "A"
+why = "Light walking breaks lower post-meal glucose and insulin more than standing (Buffey 2022 meta-analysis); 5 min every 30 min also lowered blood pressure (Diaz 2023)."
+
+[[exercise]]
+id = "stairs"
+name = "Stair climb"
+tags = ["cardio"]
+posture = "standing"
+seconds = 60
+reps = "1-2 min"
+equipment = ["stairs"]
+cue = "Climb a flight or two of stairs at a brisk pace."
+steps = [
+  "Find the nearest stairs.",
+  "Climb at a pace that makes you breathe harder, walk down easy.",
+  "Keep going until the time is up.",
+]
+evidence = "A"
+why = "Stair-climbing exercise snacks of about a minute, several times a day, improve cardiorespiratory fitness in inactive adults (BJSM 2025 meta-analysis)."
+
+[[exercise]]
+id = "squats"
+name = "Bodyweight squats"
+tags = ["legs"]
+posture = "standing"
+seconds = 45
+reps = "10-15"
+cue = "Feet shoulder-width, sit back as if onto a chair, stand up. 10 to 15."
+steps = [
+  "Feet shoulder-width apart, toes slightly out.",
+  "Sit the hips back and down as if onto a chair, knees over the toes, chest up.",
+  "Stand back up. Ten to fifteen, a chair behind you if you like.",
+]
+evidence = "B"
+why = "Three minutes of squats every 45 min lowered glucose as much as walking in a continuous glucose monitor trial (Zhejiang 2023)."
+
+[[exercise]]
+id = "calf-raises"
+name = "Calf raises"
+tags = ["legs"]
+posture = "standing"
+seconds = 40
+reps = "15-20"
+cue = "Stand, rise onto your toes, lower slowly. 15 to 20."
+steps = [
+  "Stand with a hand on the desk for balance.",
+  "Rise onto the balls of the feet as high as you can.",
+  "Lower slowly. Fifteen to twenty.",
+]
+evidence = "B"
+why = "Calf muscle activity is the main pump returning blood from the legs during sitting; lower-body muscle activity drove the glucose benefit in the squat trial."
+
+[[exercise]]
+id = "hip-flexor-stretch"
+name = "Hip flexor stretch"
+tags = ["hips"]
+posture = "standing"
+seconds = 60
+reps = "30 s each side"
+cue = "Step one foot back into a lunge, tuck the pelvis, feel the front of the hip. 30 s each side."
+steps = [
+  "Step the right foot back into a long stance, hands on the desk if needed.",
+  "Tuck the pelvis under and shift forward until the front of the right hip stretches.",
+  "Hold 30 seconds, then the other side.",
+]
+evidence = "B"
+why = "Hip flexors shorten in sitting; stretching and movement programs reduce low back pain in office workers (Gobbo 2019 review)."
+
+[[exercise]]
+id = "standing-hamstring"
+name = "Hamstring stretch"
+tags = ["hips"]
+posture = "standing"
+seconds = 60
+reps = "30 s each side"
+cue = "Heel on the chair, leg straight, hinge forward from the hips. 30 s each side."
+steps = [
+  "Put one heel on the chair seat, knee straight but not locked.",
+  "Hinge forward from the hips with a flat back until the back of the thigh stretches.",
+  "Hold 30 seconds, then the other leg.",
+]
+evidence = "B"
+why = "Part of the exercise programs that reduce low back pain in office workers (Gobbo 2019); hold 10-30 s per ACSM."
+
+[[exercise]]
+id = "thoracic-extension"
+name = "Upper back extension"
+tags = ["upper_back"]
+posture = "standing"
+seconds = 40
+reps = "10"
+cue = "Hands behind your head, arch the upper back over the top of the chair. Ten times."
+steps = [
+  "Sit back in the chair with the top edge at the middle of your back, hands behind the head.",
+  "Arch the upper back over the edge, chest up toward the ceiling.",
+  "Come back up. Ten slow repetitions.",
+]
+evidence = "B"
+why = "Reverses the slumped sitting posture; mobility and strengthening breaks reduce spinal discomfort in office workers (micro-break reviews)."
+
+[[exercise]]
+id = "wall-angels"
+name = "Wall slides"
+tags = ["shoulders"]
+posture = "standing"
+seconds = 45
+reps = "10"
+cue = "Back to the wall, arms in a goalpost, slide them up and down. Ten times."
+steps = [
+  "Stand with your back, head and elbows against a wall, arms in a goalpost shape.",
+  "Slide the arms up the wall as far as they go without the elbows leaving it.",
+  "Slide back down. Ten times.",
+]
+evidence = "B"
+why = "Scapular control and upper back mobility, part of the neck and shoulder programs with evidence for pain in office workers."
+
+[[exercise]]
+id = "doorway-chest"
+name = "Doorway chest stretch"
+tags = ["shoulders"]
+posture = "standing"
+seconds = 30
+reps = "30 s"
+cue = "Forearms on a door frame, step through until the chest stretches. 30 s."
+steps = [
+  "Stand in a doorway, forearms on the frame, elbows at shoulder height.",
+  "Step one foot through until the chest and front of the shoulders stretch.",
+  "Hold 30 seconds.",
+]
+evidence = "B"
+why = "Opens the chest after rounded sitting; stretching programs have moderate evidence for upper body complaints in computer work."
+
+[[exercise]]
+id = "side-bend"
+name = "Standing side bend"
+tags = ["lower_back"]
+posture = "standing"
+seconds = 40
+reps = "20 s each side"
+cue = "Reach one arm overhead and lean to the other side. 20 s each side."
+steps = [
+  "Stand tall, feet hip-width apart.",
+  "Reach the right arm overhead and lean to the left until the right side stretches.",
+  "Hold 20 seconds, then the other side.",
+]
+evidence = "B"
+why = "Side-bending mobility for the trunk; stretching breaks help spinal symptoms at the office (workplace break reviews)."
+
+[[exercise]]
+id = "band-pull-apart"
+name = "Band pull-aparts"
+tags = ["shoulders"]
+posture = "standing"
+seconds = 45
+reps = "15"
+equipment = ["band"]
+cue = "Hold the band in front at shoulder height and pull it apart until it touches your chest. 15."
+steps = [
+  "Hold the band with both hands in front of you, arms straight, shoulder height.",
+  "Pull the hands apart until the band touches the chest, squeezing the shoulder blades.",
+  "Return slowly. Fifteen.",
+]
+evidence = "A"
+why = "Specific strength training for the neck and shoulders, even in short bouts, reduces pain in office workers (Andersen 2012; Chen 2018)."
+
+[[exercise]]
+id = "band-row"
+name = "Band rows"
+tags = ["upper_back"]
+posture = "standing"
+seconds = 45
+reps = "15"
+equipment = ["band"]
+cue = "Band around a door handle or under your feet, row your elbows back. 15."
+steps = [
+  "Anchor the band around a door handle at waist height, or stand on it.",
+  "Pull the elbows back past the body, shoulder blades together.",
+  "Return slowly. Fifteen.",
+]
+evidence = "A"
+why = "Rowing with resistance is the core of the strength programs with moderate evidence for neck and shoulder pain (Andersen 2012; Chen 2018)."
+
+[[exercise]]
+id = "glute-bridge"
+name = "Glute bridges"
+tags = ["hips"]
+posture = "floor"
+seconds = 45
+reps = "15"
+equipment = ["floor"]
+cue = "On your back, knees bent, lift your hips until the body is a straight line. 15."
+steps = [
+  "Lie on your back, knees bent, feet flat and hip-width apart.",
+  "Push through the heels and lift the hips until shoulders, hips and knees line up.",
+  "Lower slowly. Fifteen.",
+]
+evidence = "B"
+why = "Strengthens the glutes that switch off in sitting; part of the exercise programs that reduce low back pain in office workers (Gobbo 2019)."
+
+[[exercise]]
+id = "bird-dog"
+name = "Bird dog"
+tags = ["lower_back"]
+posture = "floor"
+seconds = 60
+reps = "8 each side"
+equipment = ["floor"]
+cue = "On hands and knees, reach one arm and the opposite leg out, hold 3 s. Eight each side."
+steps = [
+  "On hands and knees, hands under shoulders, knees under hips.",
+  "Reach the right arm forward and the left leg back, keeping the back still.",
+  "Hold three seconds, return, then the other pair. Eight each side.",
+]
+evidence = "B"
+why = "Trunk stabilization work is part of the programs that reduce low back pain in office workers (Gobbo 2019)."

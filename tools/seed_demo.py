@@ -10,6 +10,7 @@ replaced: apps are matched by exe name, segments and totals for the seeded
 days are deleted first.
 """
 
+import json
 import random
 import sqlite3
 import sys
@@ -33,6 +34,32 @@ APPS = [
 
 HOSTS = ["github.com", "docs.rs", "youtube.com", "news.ycombinator.com", "reddit.com",
          "stackoverflow.com", "crates.io", "wikipedia.org"]
+
+# Routines as the engine logs them (config/exercises.toml ids).
+ROUTINES = {
+    "rest-break": [
+        ("walk", "Walk", 180, "1-5 min"),
+        ("neck-iso", "Neck presses", 45, "5 s each direction, x 3"),
+        ("hip-flexor-stretch", "Hip flexor stretch", 60, "30 s each side"),
+        ("far-focus", "Look far away", 20, "20 s"),
+        ("cyclic-sigh", "Cyclic sighing", 45, "5 breaths"),
+    ],
+    "move-break": [("walk", "Walk", 64, "1-5 min"), ("squats", "Bodyweight squats", 45, "10-15")],
+    "micro-break": [("blink-squeeze", "Full blinks", 30, "10 slow")],
+}
+
+
+def routine_json(rule: str) -> str | None:
+    steps = ROUTINES.get(rule)
+    if not steps:
+        return None
+    return json.dumps({
+        "steps": [
+            {"id": i, "name": n, "seconds": s, "reps": r, "cue": f"{n}.", "lines": [f"{n}."]}
+            for i, n, s, r in steps
+        ],
+        "note": "1 h 20 min without a real break: walk first." if rule == "rest-break" else None,
+    })
 
 
 def local_day(dt: datetime) -> str:
@@ -159,15 +186,16 @@ def main() -> None:
             cur.execute("INSERT INTO daily_web_totals (local_day, host, ms) VALUES (?, ?, ?)", (day, host, total))
 
     # A few nag events over the last days.
-    for i in range(12):
+    for i in range(16):
         at = now - timedelta(hours=rng.randint(1, days * 20))
-        rule = rng.choice(["rest-break", "micro-break", "gaming-daily"])
-        kind = rng.choice(["raise", "escalate", "dismiss", "snooze", "skip"])
+        rule = rng.choice(["rest-break", "move-break", "micro-break", "gaming-daily"])
+        kind = rng.choice(["raise", "escalate", "dismiss", "snooze", "skip", "break_started"])
         level = rng.choice(["toast", "overlay"]) if kind in ("raise", "escalate") else None
         reason = {"dismiss": "rested", "snooze": "user", "skip": "user"}.get(kind)
+        routine = routine_json(rule) if kind in ("raise", "break_started") else None
         cur.execute(
-            "INSERT INTO nag_events (rule_id, kind, level, reason, at) VALUES (?, ?, ?, ?, ?)",
-            (rule, kind, level, reason, ms(at)),
+            "INSERT INTO nag_events (rule_id, kind, level, reason, at, routine) VALUES (?, ?, ?, ?, ?, ?)",
+            (rule, kind, level, reason, ms(at), routine),
         )
     con.commit()
     print(f"seeded {days} days into {path}")

@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use axum::Router;
 use axum::http::{HeaderValue, Method, header};
 use ns_core::{Activity, Clock, Config, EventBus, LocalDay, Timestamp};
-use ns_rules::EngineSnapshot;
+use ns_rules::{Catalog, EngineSnapshot};
 use ns_storage::StorageHandle;
 use ns_tracker::ExtEvent;
 use tokio::net::TcpListener;
@@ -47,6 +47,8 @@ pub struct ApiState {
     pub ext_clients: Arc<Mutex<HashMap<String, ExtClient>>>,
     /// Where `POST /backup` writes database copies.
     pub backup_dir: PathBuf,
+    /// The exercise catalogue (`GET /exercises`).
+    pub catalog: Arc<Catalog>,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]

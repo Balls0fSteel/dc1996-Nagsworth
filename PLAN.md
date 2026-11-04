@@ -1,6 +1,6 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_223500_1793831700
+Last updated: 2026-11-05_001500_1793834100
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
@@ -362,10 +362,31 @@ end of the brief. Decided 2026-11-04_223500_1793831700: a third default rule
 `move-break` (every 30 min, 2 min, toast, walk/legs items) ships, with
 `micro-break` moved to every 20 min and `rest-break` to every 60 min.
 
+## Break exercises built (2026-11-05_001500_1793834100)
+
+All work items of docs/EXERCISES.md are in (CHANGELOG.md): the three
+default rules, `config/exercises.toml` (28 items), `ns_rules::exercises`
+(catalogue with user overrides, planner, rotation), the engine planning at
+raise and at break start, `NagEvent::Raise` / `BreakStarted` carrying the
+routine, migration 003 (`nag_events.routine`), the rotation in `settings`,
+`GET /v1/exercises`, `EngineCommand::SetExercises` on config save, the
+overlay step view (per-step countdown, Space / Next, the list), the toast
+cue, Settings > Break exercises (switches, equipment, the catalogue with
+per-item toggles), the Rules chips and the routines in the nag history,
+docs and the seed script. Verified: 115 tests, clippy, fmt, ui:check, the
+Linux cross-check; the built app on the hidden desktop served 28 items,
+started a rest break over the API with a six-step routine (walk first,
+breathing last) logged to the nag history, and rendered the overlay on
+both monitors. Not checked by hand: the toast cue, Space / Next in the
+overlay, the Settings card's switches (docs/MANUAL_CHECKS.md "Break
+exercises"). Open (docs/EXERCISES.md): audio cues, completion tracking on
+History, the band tier default, habits like drinking water; the user
+catalogue file is read at start only.
+
 ## Next steps
 
-0. Run the checks in docs/MANUAL_CHECKS.md, first "Hands-on gaming time"
-   with a controller.
+0. Run the checks in docs/MANUAL_CHECKS.md, first "Break exercises" and
+   "Hands-on gaming time" with a controller.
 1. Use it for a few days: load the extension, pair it, tune
    `min_segment_ms`, `idle_after_s` and the rules.
 2. CI is green on GitHub. Move `actions/checkout` and `actions/setup-node`
@@ -381,9 +402,9 @@ end of the brief. Decided 2026-11-04_223500_1793831700: a third default rule
    installed 0.1.0 offers the next release (docs/MANUAL_CHECKS.md).
 5. Backlog items: KDE Wayland window tracking, a structured rule editor
    (docs/BACKLOG.md).
-6. Break exercises: decide the remaining open questions in
-   docs/EXERCISES.md (audio cues, completion tracking, band tier, habits),
-   then hand the brief to an implementation session.
+6. Break exercises are built; the remaining open questions in
+   docs/EXERCISES.md (audio cues, completion tracking, band tier, habits)
+   wait for a few days of use.
 
 ## Risks and open questions
 

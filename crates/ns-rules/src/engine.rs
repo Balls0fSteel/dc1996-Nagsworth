@@ -10,14 +10,17 @@
 //! ```
 
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
+use ns_core::config::Exercises as ExercisesConfig;
 use ns_core::{
-    Activity, ControlCommand, DismissReason, LocalDay, NagEvent, NagLevel, SegmentKind, TimeOfDay,
-    Timestamp,
+    Activity, ControlCommand, DismissReason, LocalDay, NagEvent, NagLevel, Routine, SegmentKind,
+    TimeOfDay, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
+use crate::exercises::{ExerciseSetup, PlanInput};
 use crate::rule::{IdlePolicy, Rule, RuleSet, Trigger};
 
 /// Gaps between ticks longer than this are rest, not activity.
@@ -61,6 +64,8 @@ pub struct Counters {
 struct RuleState {
     counters: Counters,
     nag: NagState,
+    /// The exercises planned for the open nag or the running break.
+    routine: Option<Routine>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,6 +86,8 @@ pub struct RuleSnapshot {
     pub message: String,
     /// The policy in effect: the rule's own or its default, after reading mode.
     pub idle_policy: IdlePolicy,
+    /// The exercises of the open nag or the running break.
+    pub routine: Option<Routine>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,10 +107,48 @@ pub struct Engine {
     hands_on_games: bool,
     day_start: TimeOfDay,
     last_tick: Option<Timestamp>,
+    /// Exercise suggestions; `None` without a catalogue (tests).
+    exercises: Option<ExerciseSetup>,
+    /// Today's active time in any scope, for the planner's day load.
+    day_active_ms: i64,
+    active_day: Option<LocalDay>,
 }
 
 fn ms(d: Duration) -> i64 {
     d.as_millis() as i64
+}
+
+/// Plans the exercises for `rule`'s break: the rule's `break_for`, the time
+/// counted since its last reset, and today's load.
+fn plan_routine(
+    exercises: &Option<ExerciseSetup>,
+    day_active_ms: i64,
+    rule: &Rule,
+    st: &RuleState,
+    now: Timestamp,
+    day: LocalDay,
+) -> Option<Routine> {
+    let setup = exercises.as_ref()?;
+    if rule.exercises == crate::rule::RuleExercises::Off {
+        return None;
+    }
+    let break_for = match &rule.trigger {
+        Trigger::Interval { break_for, .. } => *break_for,
+        Trigger::Continuous { reset_after, .. } => *reset_after,
+        _ => return None,
+    };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    rule.id.hash(&mut hasher);
+    now.hash(&mut hasher);
+    setup.plan(&PlanInput {
+        rule_id: &rule.id,
+        break_ms: ms(break_for),
+        sat_ms: st.counters.accum_ms,
+        today_active_ms: day_active_ms,
+        tags: rule.exercises.tags(),
+        today: day,
+        seed: hasher.finish(),
+    })
 }
 
 impl Engine {
@@ -120,9 +165,39 @@ impl Engine {
             hands_on_games,
             day_start,
             last_tick: None,
+            exercises: None,
+            day_active_ms: 0,
+            active_day: None,
         };
         e.replace_rules(rules, 0);
         e
+    }
+
+    /// Turns on exercise suggestions with this catalogue and config.
+    pub fn with_exercises(mut self, setup: ExerciseSetup) -> Self {
+        self.exercises = Some(setup);
+        self
+    }
+
+    /// Applies a changed `[exercises]` config; the catalogue and rotation stay.
+    pub fn set_exercises_config(&mut self, config: ExercisesConfig) {
+        if let Some(setup) = &mut self.exercises {
+            setup.config = config;
+        }
+    }
+
+    /// Restores the rotation state (JSON from [`Engine::export_rotation`]).
+    pub fn import_rotation(&mut self, json: &str) {
+        if let (Some(setup), Some(rot)) = (
+            &mut self.exercises,
+            crate::exercises::Rotation::from_json(json),
+        ) {
+            setup.rotation = rot;
+        }
+    }
+
+    pub fn export_rotation(&self) -> Option<String> {
+        self.exercises.as_ref().map(|s| s.rotation.to_json())
     }
 
     pub fn rules(&self) -> &RuleSet {
@@ -195,9 +270,16 @@ impl Engine {
             .collect()
     }
 
-    fn raise(rule: &Rule, st: &mut RuleState, now: Timestamp, out: &mut Vec<NagEvent>) {
+    fn raise(
+        rule: &Rule,
+        st: &mut RuleState,
+        now: Timestamp,
+        routine: Option<Routine>,
+        out: &mut Vec<NagEvent>,
+    ) {
         let level = rule.level_at(Duration::ZERO);
         st.nag = NagState::Active { level, since: now };
+        st.routine = routine.clone();
         let break_for_ms = match &rule.trigger {
             Trigger::Interval { break_for, .. } => Some(break_for.as_millis() as u64),
             Trigger::Continuous { reset_after, .. } => Some(reset_after.as_millis() as u64),
@@ -214,6 +296,7 @@ impl Engine {
                 .snooze()
                 .max_per_day
                 .saturating_sub(st.counters.snoozes_used),
+            routine,
         });
     }
 
@@ -232,6 +315,10 @@ impl Engine {
                 at: now,
             });
         }
+        // A snoozed nag comes back with the same routine.
+        if !matches!(next, NagState::Snoozed { .. }) {
+            st.routine = None;
+        }
         st.nag = next;
     }
 
@@ -245,6 +332,14 @@ impl Engine {
         let day = LocalDay::from_ts(now, offset_s, self.day_start);
         let time_of_day = TimeOfDay::of(now, offset_s);
         let mut out = Vec::new();
+
+        if self.active_day != Some(day) {
+            self.active_day = Some(day);
+            self.day_active_ms = 0;
+        }
+        if activity.kind == Some(SegmentKind::Active) && !gap {
+            self.day_active_ms += dt;
+        }
 
         for rule in &self.rules.rules {
             let policy = self.effective_policy(rule);
@@ -294,6 +389,7 @@ impl Engine {
                     st.counters.accum_ms = 0;
                     st.counters.rest_ms = 0;
                     st.nag = NagState::Idle;
+                    st.routine = None;
                     out.push(NagEvent::Dismiss {
                         rule_id: rule.id.clone(),
                         reason: DismissReason::BreakTaken,
@@ -336,7 +432,10 @@ impl Engine {
                     // Continuous nags only while the scope is in use.
                     let can_show = counting || matches!(rule.trigger, Trigger::Interval { .. });
                     if due && can_show && (st.nag == NagState::Idle || snooze_over) {
-                        Self::raise(rule, st, now, &mut out);
+                        let routine = st.routine.take().or_else(|| {
+                            plan_routine(&self.exercises, self.day_active_ms, rule, st, now, day)
+                        });
+                        Self::raise(rule, st, now, routine, &mut out);
                     }
                 }
                 Trigger::DailyTotal { limit, renag_every } => {
@@ -350,7 +449,7 @@ impl Engine {
                         st.nag = NagState::Pending;
                     }
                     if counting && (st.nag == NagState::Pending || snooze_over || renag) {
-                        Self::raise(rule, st, now, &mut out);
+                        Self::raise(rule, st, now, None, &mut out);
                     } else if !in_scope && matches!(st.nag, NagState::Active { .. }) {
                         Self::dismiss(
                             rule,
@@ -377,7 +476,7 @@ impl Engine {
                         let renag = matches!(st.nag, NagState::Satisfied { since }
                             if now - since >= SCHEDULE_RENAG_MS);
                         if counting && (st.nag == NagState::Idle || snooze_over || renag) {
-                            Self::raise(rule, st, now, &mut out);
+                            Self::raise(rule, st, now, None, &mut out);
                         } else if !in_scope && matches!(st.nag, NagState::Active { .. }) {
                             Self::dismiss(
                                 rule,
@@ -453,9 +552,13 @@ impl Engine {
                         at: now,
                     });
                     st.nag = next;
+                    st.routine = None;
                 }
             }
             ControlCommand::StartBreakNow { rule_id } => {
+                let day = self
+                    .active_day
+                    .unwrap_or_else(|| LocalDay::from_ts(now, 0, self.day_start));
                 for rule in &self.rules.rules {
                     if rule_id.as_ref().is_some_and(|id| *id != rule.id) || !rule.enabled {
                         continue;
@@ -467,10 +570,19 @@ impl Engine {
                     };
                     let st = self.states.entry(rule.id.clone()).or_default();
                     let until = now + ms(length);
+                    // The nag's routine if there was one, else a fresh plan.
+                    let routine = st.routine.take().or_else(|| {
+                        plan_routine(&self.exercises, self.day_active_ms, rule, st, now, day)
+                    });
+                    if let (Some(setup), Some(r)) = (&mut self.exercises, &routine) {
+                        setup.note(&rule.id, r, day);
+                    }
                     st.nag = NagState::InBreak { until };
+                    st.routine = routine.clone();
                     out.push(NagEvent::BreakStarted {
                         rule_id: rule.id.clone(),
                         until,
+                        routine,
                     });
                 }
             }
@@ -511,6 +623,7 @@ impl Engine {
                         .saturating_sub(st.counters.snoozes_used),
                     message: r.message(),
                     idle_policy: self.effective_policy(r),
+                    routine: st.routine,
                 }
             })
             .collect();
@@ -659,7 +772,8 @@ mod tests {
             ev,
             vec![NagEvent::BreakStarted {
                 rule_id: "brk".into(),
-                until: 71_000
+                until: 71_000,
+                routine: None,
             }]
         );
         let ev = run(&mut e, 62_000, 10, &work);

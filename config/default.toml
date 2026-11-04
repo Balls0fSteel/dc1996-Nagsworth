@@ -38,6 +38,18 @@ include_incognito = false
 port = 47821
 bind = "127.0.0.1"
 
+[exercises]
+# Suggest exercises during breaks (docs/EXERCISES.md): what to do depends
+# on the break's length and on how long you have been at it.
+enabled = true
+# What you have at the desk: "band" (resistance band), "stairs", "floor"
+# (room to lie down). Items that need one are only suggested with it.
+equipment = []
+# Exercise ids never to suggest (the Settings page lists them).
+exclude = []
+# Suggest walks; off if there is nowhere to walk. Squats stand in.
+walks = true
+
 # Rules. Triggers:
 #   interval     every = work time, break_for = rest that resets the timer
 #   daily_total  limit = time per local day, renag_every = repeat while over
@@ -48,21 +60,35 @@ bind = "127.0.0.1"
 #   "input" (only the input_window_s after each key, mouse or controller input
 #   counts). Game scope defaults to "input" while hands_on_games is on.
 # Escalation levels: toast, overlay, lock (lock calls LockWorkStation).
+# exercises: false, or { tags = [...] } to limit the suggested exercises.
+
+[[rules]]
+id = "micro-break"
+name = "Micro-break: eyes and neck"
+trigger = { kind = "interval", every = "20m", break_for = "30s" }
+escalation = [ { after = "0s", level = "toast" } ]
+# exercises: false turns suggestions off for a rule; tags keep them to a
+# body region (eyes, neck, shoulders, upper_back, wrists, lower_back, hips,
+# legs, walk, cardio, breathing). This one stays at the desk.
+exercises = { tags = ["eyes", "neck", "shoulders", "wrists"] }
+
+[[rules]]
+id = "move-break"
+name = "Move: get up for two minutes"
+trigger = { kind = "interval", every = "30m", break_for = "2m" }
+escalation = [ { after = "0s", level = "toast" } ]
+# A walk, squats or sit-to-stands: light activity every 30 minutes.
+exercises = { tags = ["walk", "legs", "hips"] }
 
 [[rules]]
 id = "rest-break"
 name = "Take a 10 minute break"
-trigger = { kind = "interval", every = "50m", break_for = "10m" }
+trigger = { kind = "interval", every = "60m", break_for = "10m" }
 scope = "any"
 idle_policy = "pause"
 escalation = [ { after = "0s", level = "toast" }, { after = "90s", level = "overlay" } ]  # , { after = "5m", level = "lock" }
 snooze = { duration = "5m", max_per_day = 3 }
-
-[[rules]]
-id = "micro-break"
-name = "Micro-break: look away from the screen"
-trigger = { kind = "interval", every = "10m", break_for = "30s" }
-escalation = [ { after = "0s", level = "toast" } ]
+# No exercises key: the full routine (a walk first, then the rest).
 
 [[rules]]
 id = "gaming-daily"

@@ -23,6 +23,27 @@ Pass: the log has `tray menu: <id>` for each item, and
 
 Left-clicking the icon opens the dashboard; the tooltip names the app in front.
 
+## Break exercises
+
+1. In the Rules tab (Config file view), set `break_for = "10s"` on
+   `micro-break` and `every = "1m"` on `rest-break`, save.
+2. Wait for the micro-break toast: it names the first exercise under the
+   message ("Try: Look far away · 20 s" or another eyes/neck/shoulders/wrists
+   item). Click "Start 10s break".
+3. Pass: the overlay shows the ring timer on the left and the step on the
+   right (number, name, reps, its lines, a step countdown), the list of all
+   steps with the current one highlighted, "Not medical advice" in small
+   print, and "Space next step" in the key hint.
+4. Wait for the rest-break toast, start the break: the routine begins with
+   "Walk", the note under the rule name is absent (under an hour sat),
+   and Space advances the step; the list crosses out finished steps. Let it
+   run out: the overlay closes.
+5. Settings > Break exercises: switch "Include walks" off, start a break
+   from the tray: no "Walk" step, squats or sit-to-stands instead. Tick
+   "Resistance band", open "All 28 exercises", switch an item off: the Rules
+   tab's nag history shows the routines of the raises and break starts.
+6. Restore the rules.
+
 ## Nag during an exclusive-fullscreen game (Windows)
 
 1. In the Rules tab (Config file view), add a quick test rule and save:

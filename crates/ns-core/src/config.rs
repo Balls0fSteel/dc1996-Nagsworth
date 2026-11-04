@@ -20,6 +20,7 @@ pub struct Config {
     pub tracking: Tracking,
     pub web: Web,
     pub api: Api,
+    pub exercises: Exercises,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,6 +117,41 @@ impl Default for Api {
         Self {
             port: 47821,
             bind: "127.0.0.1".into(),
+        }
+    }
+}
+
+/// What the user has at the desk; items that need one are only suggested
+/// when it is listed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Equipment {
+    /// A resistance band.
+    Band,
+    Stairs,
+    /// Room to lie down.
+    Floor,
+}
+
+/// `[exercises]`: suggestions during breaks (docs/EXERCISES.md).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Exercises {
+    pub enabled: bool,
+    pub equipment: Vec<Equipment>,
+    /// Exercise ids never suggested.
+    pub exclude: Vec<String>,
+    /// Suggest walks; squats stand in when off.
+    pub walks: bool,
+}
+
+impl Default for Exercises {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            equipment: Vec::new(),
+            exclude: Vec::new(),
+            walks: true,
         }
     }
 }
@@ -224,6 +260,22 @@ mod tests {
         assert!(c.tracking.hands_on_games);
         assert!(c.tracking.gamepad);
         assert_eq!(c.api, Api::default());
+        assert_eq!(c.exercises, Exercises::default());
+        let c = Config::from_toml(
+            "[exercises]
+equipment = [\"band\", \"floor\"]
+exclude = [\"chin-tuck\"]
+walks = false
+",
+        )
+        .unwrap();
+        assert_eq!(
+            c.exercises.equipment,
+            vec![Equipment::Band, Equipment::Floor]
+        );
+        assert_eq!(c.exercises.exclude, vec!["chin-tuck"]);
+        assert!(!c.exercises.walks);
+        assert!(c.exercises.enabled);
     }
 
     #[test]

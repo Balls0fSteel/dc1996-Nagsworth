@@ -7,6 +7,8 @@ use std::time::Duration;
 use ns_core::{AppRef, CategoryKind, NagLevel, TimeOfDay};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::exercises::Tag;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RuleError {
     #[error("invalid rules: {0}")]
@@ -196,6 +198,56 @@ fn default_true() -> bool {
     true
 }
 
+/// `exercises = false | true | { tags = [...] }` on a rule: whether its
+/// breaks suggest exercises, and from which regions.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum RuleExercises {
+    Off,
+    /// The `[exercises]` config decides; the full planner.
+    #[default]
+    Default,
+    /// Only items with one of these tags.
+    Focus(Vec<Tag>),
+}
+
+impl RuleExercises {
+    /// The tag filter for the planner: `None` for the full catalogue.
+    pub fn tags(&self) -> Option<&[Tag]> {
+        match self {
+            RuleExercises::Focus(t) => Some(t),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum RuleExercisesRepr {
+    Flag(bool),
+    Focus { tags: Vec<Tag> },
+}
+
+impl Serialize for RuleExercises {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            RuleExercises::Off => RuleExercisesRepr::Flag(false),
+            RuleExercises::Default => RuleExercisesRepr::Flag(true),
+            RuleExercises::Focus(tags) => RuleExercisesRepr::Focus { tags: tags.clone() },
+        }
+        .serialize(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for RuleExercises {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(match RuleExercisesRepr::deserialize(d)? {
+            RuleExercisesRepr::Flag(false) => RuleExercises::Off,
+            RuleExercisesRepr::Flag(true) => RuleExercises::Default,
+            RuleExercisesRepr::Focus { tags } => RuleExercises::Focus(tags),
+        })
+    }
+}
+
 fn default_escalation() -> Vec<EscalationStep> {
     vec![EscalationStep {
         after: Duration::ZERO,
@@ -224,6 +276,9 @@ pub struct Rule {
     /// Text shown in the nag; a default is derived from the trigger.
     #[serde(default)]
     pub message: Option<String>,
+    /// Exercise suggestions for this rule's breaks.
+    #[serde(default)]
+    pub exercises: RuleExercises,
 }
 
 impl Rule {
@@ -289,6 +344,9 @@ impl Rule {
         if self.escalation.is_empty() {
             return Err(invalid("escalation must have at least one step"));
         }
+        if matches!(&self.exercises, RuleExercises::Focus(t) if t.is_empty()) {
+            return Err(invalid("exercises.tags must not be empty"));
+        }
         match &self.trigger {
             Trigger::Interval { every, break_for } => {
                 if every.is_zero() || break_for.is_zero() {
@@ -349,15 +407,16 @@ mod tests {
     #[test]
     fn parses_the_shipped_example() {
         let set = RuleSet::from_toml(DEFAULT_CONFIG_TOML).unwrap();
-        assert_eq!(set.rules.len(), 4);
+        assert_eq!(set.rules.len(), 5);
         let rest = set.get("rest-break").unwrap();
         assert_eq!(
             rest.trigger,
             Trigger::Interval {
-                every: Duration::from_secs(50 * 60),
+                every: Duration::from_secs(60 * 60),
                 break_for: Duration::from_secs(600),
             }
         );
+        assert_eq!(rest.exercises, RuleExercises::Default);
         assert_eq!(rest.escalation.len(), 2);
         assert_eq!(rest.snooze().max_per_day, 3);
         assert_eq!(rest.level_at(Duration::from_secs(10)), NagLevel::Toast);
@@ -368,6 +427,31 @@ mod tests {
         assert_eq!(micro.idle_policy(true), IdlePolicy::Pause);
         assert_eq!(micro.idle_policy(false), IdlePolicy::Pause);
         assert!(micro.enabled);
+        assert_eq!(
+            micro.trigger,
+            Trigger::Interval {
+                every: Duration::from_secs(20 * 60),
+                break_for: Duration::from_secs(30),
+            }
+        );
+        assert_eq!(
+            micro.exercises.tags(),
+            Some(&[Tag::Eyes, Tag::Neck, Tag::Shoulders, Tag::Wrists][..])
+        );
+
+        let mv = set.get("move-break").unwrap();
+        assert_eq!(
+            mv.trigger,
+            Trigger::Interval {
+                every: Duration::from_secs(30 * 60),
+                break_for: Duration::from_secs(120),
+            }
+        );
+        assert_eq!(
+            mv.exercises.tags(),
+            Some(&[Tag::Walk, Tag::Legs, Tag::Hips][..])
+        );
+        assert_eq!(mv.escalation.len(), 1);
 
         let gaming = set.get("gaming-daily").unwrap();
         assert_eq!(gaming.scope, Scope::Category(CategoryKind::Game));

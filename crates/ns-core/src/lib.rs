@@ -11,10 +11,11 @@ pub mod types;
 
 pub use clock::{Clock, MockClock, SystemClock};
 pub use config::Config;
+pub use config::Equipment;
 pub use day::{LocalDay, TimeOfDay};
 pub use event::{
-    Activity, AppRef, ControlCommand, DismissReason, Event, EventBus, NagEvent, NagLevel,
-    SessionEvent, TrackerEvent, WebEvent,
+    Activity, AppRef, ControlCommand, DismissReason, Event, EventBus, NagEvent, NagLevel, Routine,
+    RoutineStep, SessionEvent, TrackerEvent, WebEvent,
 };
 pub use types::{
     CategoryKind, ProcessInfo, Sample, Segment, SegmentKind, SessionState, Timestamp, WindowInfo,

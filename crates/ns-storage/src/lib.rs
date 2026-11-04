@@ -322,8 +322,9 @@ mod tests {
         db.kv_set("token", "a").unwrap();
         db.kv_set("token", "b").unwrap();
         assert_eq!(db.kv_get("token").unwrap().as_deref(), Some("b"));
-        db.log_nag("r", "raise", Some("toast"), None, 100).unwrap();
-        db.log_nag("r", "dismiss", None, Some("skipped"), 200)
+        db.log_nag("r", "raise", Some("toast"), None, 100, None)
+            .unwrap();
+        db.log_nag("r", "dismiss", None, Some("skipped"), 200, None)
             .unwrap();
         let nags = db.nags(0, 10).unwrap();
         assert_eq!(nags.len(), 2);

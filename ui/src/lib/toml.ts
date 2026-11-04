@@ -107,6 +107,55 @@ export function setTableValue(
   return lines.join(eol);
 }
 
+// ---- [exercises] ----
+
+export interface ExerciseSettings {
+  enabled: boolean;
+  equipment: string[];
+  exclude: string[];
+  walks: boolean;
+}
+
+/** A TOML array of bare words or quoted strings, e.g. `["band", "floor"]`. */
+function parseStringArray(v: string | null): string[] | null {
+  if (v === null) return null;
+  const m = /^\[(.*)\]$/s.exec(v.trim());
+  if (!m) return null;
+  return m[1]
+    .split(",")
+    .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+    .filter((s) => s.length > 0);
+}
+
+function tomlStringArray(items: readonly string[]): string {
+  return `[${items.map((s) => JSON.stringify(s)).join(", ")}]`;
+}
+
+/** Reads `[exercises]` with the service's defaults (on, nothing, nothing, walks on). */
+export function readExercises(src: string): ExerciseSettings {
+  const enabled = getTableValue(src, "exercises", "enabled");
+  const walks = getTableValue(src, "exercises", "walks");
+  return {
+    enabled: enabled === null ? true : enabled !== "false",
+    equipment: parseStringArray(getTableValue(src, "exercises", "equipment")) ?? [],
+    exclude: parseStringArray(getTableValue(src, "exercises", "exclude")) ?? [],
+    walks: walks === null ? true : walks !== "false",
+  };
+}
+
+/** Writes the given `[exercises]` keys; the table is created after `[api]` when missing. */
+export function withExercises(src: string, s: Partial<ExerciseSettings>): string {
+  let out = src;
+  const set = (key: string, value: string) => {
+    out = setTableValue(out, "exercises", key, value, "api");
+  };
+  if (s.enabled !== undefined) set("enabled", String(s.enabled));
+  if (s.equipment !== undefined) set("equipment", tomlStringArray(s.equipment));
+  if (s.exclude !== undefined) set("exclude", tomlStringArray(s.exclude));
+  if (s.walks !== undefined) set("walks", String(s.walks));
+  return out;
+}
+
 // ---- [tracking] hands-on settings ----
 
 export const INPUT_WINDOW_MIN = 1;

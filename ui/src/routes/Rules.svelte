@@ -300,6 +300,13 @@
     return { text: r.scope.app, mono: true };
   }
 
+  /** The exercises chip: the regions, "no exercises", or null for the default. */
+  function exercisesLabel(r: RuleDef): string | null {
+    if (r.exercises === true) return null;
+    if (r.exercises === false) return "no exercises";
+    return r.exercises.tags.map((t) => t.replaceAll("_", " ")).join(", ");
+  }
+
   function idleLabel(r: RuleDef): { text: string; isDefault: boolean } {
     const isGame = r.scope !== "any" && "category" in r.scope && r.scope.category === "Game";
     // The Game default follows `[tracking] hands_on_games`; "ignore" until the snapshot is in.
@@ -422,6 +429,9 @@
             <div class="chips">
               <span class="pill" class:mono={scope.mono} title="Scope">{scope.text}</span>
               <span class="pill" title={idle.isDefault ? "Idle policy (default)" : "Idle policy"}>{idle.text}</span>
+              {#if exercisesLabel(rule) !== null}
+                <span class="pill" title="Exercises">{exercisesLabel(rule)}</span>
+              {/if}
             </div>
 
             <div class="ladder" aria-label="Escalation">
@@ -550,7 +560,14 @@
                   {n.kind.replaceAll("_", " ")}
                 </span>
               </td>
-              <td class="muted">{n.level ?? n.reason ?? ""}</td>
+              <td class="muted">
+                {n.level ?? n.reason ?? ""}
+                {#if n.routine && n.routine.steps.length > 0}
+                  <span class="small routine-text" title={n.routine.steps.map((s) => `${s.name} (${s.reps})`).join("\n")}>
+                    {n.routine.steps.map((s) => s.name).join(", ")}
+                  </span>
+                {/if}
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -758,5 +775,12 @@
   }
   .pill.quiet {
     color: var(--muted);
+  }
+  .routine-text {
+    display: block;
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 </style>

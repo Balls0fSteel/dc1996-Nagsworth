@@ -62,6 +62,7 @@ pub fn routes(state: ApiState) -> Router<ApiState> {
         .route("/apps/{id}", patch(update_app))
         .route("/categories", get(list_categories).post(create_category))
         .route("/rules", get(get_rules).put(put_rules))
+        .route("/exercises", get(get_exercises))
         .route("/nags", get(list_nags))
         .route("/export", get(export))
         .route("/backup", post(backup))
@@ -382,6 +383,14 @@ async fn put_rules(State(s): State<ApiState>, body: String) -> ApiResult<Value> 
     get_rules(State(s)).await
 }
 
+// ---- exercises ----
+
+/// The merged catalogue and the `[exercises]` config, for the Settings page.
+async fn get_exercises(State(s): State<ApiState>) -> Json<Value> {
+    let config = s.config.read().unwrap().exercises.clone();
+    Json(json!({ "exercises": s.catalog.exercises, "config": config }))
+}
+
 // ---- export and backup ----
 
 #[derive(Deserialize)]
@@ -480,6 +489,18 @@ async fn list_nags(State(s): State<ApiState>, Query(q): Query<NagQuery>) -> ApiR
     let since = q.since.unwrap_or(0);
     let limit = q.limit.unwrap_or(100).min(1000);
     let nags = s.storage.call(move |db| db.nags(since, limit)).await?;
+    let nags: Vec<Value> = nags
+        .into_iter()
+        .map(|n| {
+            let routine = n
+                .routine
+                .as_deref()
+                .and_then(|r| serde_json::from_str::<Value>(r).ok());
+            let mut v = serde_json::to_value(&n).unwrap_or(Value::Null);
+            v["routine"] = routine.unwrap_or(Value::Null);
+            v
+        })
+        .collect();
     Ok(Json(json!({ "nags": nags })))
 }
 

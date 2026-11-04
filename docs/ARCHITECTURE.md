@@ -125,6 +125,24 @@ Satisfied --renag interval passed, still due--> Active
 - Counters are persisted every minute and on shutdown (`rule_state`), so a
   restart does not reset a daily limit.
 
+### Break exercises
+
+`ns_rules::exercises` (docs/EXERCISES.md) is pure like the engine. `Catalog`
+parses `config/exercises.toml` (built in) and merges the user's
+`<data dir>/exercises.toml` by id. `planner::plan` builds a `Routine` from
+the rule's `break_for`, the time counted since the rule's last reset
+(`sat_ms`), today's active time and the rule's `exercises` tags: one item
+under a minute; a walk whose length follows the time sat (1 to 5 min) plus
+region-balanced items for longer breaks; breathing last in long untargeted
+routines. `Rotation` (which item was shown when, per rule) weights the
+seeded choice and is persisted in `settings` as `exercises.rotation`. The
+engine plans when a break rule's nag is raised (the toast shows the first
+item's cue) and reuses that routine when the break starts, or plans then for
+a break started from the tray. `NagEvent::Raise` and `BreakStarted` carry the
+routine; `nag_events.routine` logs it; `GET /exercises` lists the catalogue
+and `[exercises]` for the Settings card, whose changes reach the engine as
+`EngineCommand::SetExercises`. The catalogue file is read at start only.
+
 ## Nag windows
 
 `nag_bridge.rs` keeps the open nags from the bus and reconciles windows: a
@@ -132,7 +150,9 @@ toast (bottom-right of the primary work area, does not take focus) for
 toast-level nags, and one undecorated, always-on-top overlay per monitor for
 overlay/lock-level nags and running breaks. Windows fetch the list with the
 `current_nags` command, follow `nags-changed` events, and answer with
-`nag_action` (snooze, skip, break). The `lock` level is applied by the
+`nag_action` (snooze, skip, break). During a break the overlay walks the
+routine's steps on their own seconds (Space or "Next" jumps ahead); the
+engine's break timer stays the truth and the steps are only a view on it. The `lock` level is applied by the
 runtime (`LockWorkStation`), not by a window.
 
 While an exclusive-fullscreen game or a presentation owns the screen

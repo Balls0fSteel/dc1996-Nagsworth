@@ -6,6 +6,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { clock, duration } from "./lib/format";
+  import type { Routine } from "./lib/api";
   import Icon from "./lib/ui/Icon.svelte";
 
   interface NagView {
@@ -17,6 +18,8 @@
     break_for_ms: number | null;
     snoozes_left: number;
     break_until: number | null;
+    /** The exercises to suggest (docs/EXERCISES.md). */
+    routine: Routine | null;
   }
 
   type Action = "snooze" | "skip" | "break";
@@ -59,6 +62,45 @@
     return Math.min(1, Math.max(0, (n.break_until - now) / n.break_for_ms));
   }
 
+  // ---- Routine steps ----
+  // Steps run on their own seconds from the break's start; "Next" (or Space)
+  // jumps ahead and the schedule continues from that step at that moment.
+  // The engine's break timer stays the truth; this is only a view on it.
+  interface StepBase {
+    index: number;
+    at: number;
+  }
+  let stepBase = $state<Map<string, StepBase>>(new Map());
+
+  interface StepView {
+    index: number;
+    /** Milliseconds left in the current step. */
+    left: number;
+  }
+
+  function stepView(n: NagView): StepView | null {
+    const r = n.routine;
+    if (!r || r.steps.length === 0 || n.break_until === null || !n.break_for_ms) return null;
+    const base = stepBase.get(n.rule_id) ?? { index: 0, at: n.break_until - n.break_for_ms };
+    let t = base.at;
+    for (let i = base.index; i < r.steps.length; i++) {
+      const end = t + r.steps[i].seconds * 1000;
+      if (now < end || i === r.steps.length - 1) {
+        return { index: i, left: Math.max(0, end - now) };
+      }
+      t = end;
+    }
+    return { index: r.steps.length - 1, left: 0 };
+  }
+
+  function nextStep(n: NagView) {
+    const v = stepView(n);
+    if (!v || !n.routine || v.index >= n.routine.steps.length - 1) return;
+    const m = new Map(stepBase);
+    m.set(n.rule_id, { index: v.index + 1, at: now });
+    stepBase = m;
+  }
+
   async function act(rule_id: string, action: Action) {
     if (busy) return;
     busy = true;
@@ -70,9 +112,15 @@
   }
 
   function onKeydown(e: KeyboardEvent) {
-    if (mode !== "overlay" || e.key !== "Escape") return;
+    if (mode !== "overlay") return;
     const first = shown[0];
     if (!first) return;
+    if (e.key === " " && first.break_until !== null && first.routine) {
+      e.preventDefault();
+      nextStep(first);
+      return;
+    }
+    if (e.key !== "Escape") return;
     e.preventDefault();
     // Skip is always allowed; during a break it ends the break early.
     act(first.rule_id, "skip");
@@ -118,6 +166,14 @@
           {/if}
         </header>
         <p class="t-message">{n.message}</p>
+        {#if n.routine && n.routine.steps.length > 0}
+          {@const first = n.routine.steps[0]}
+          <p class="t-cue">
+            <span class="t-cue-name">{n.routine.steps.length > 1 ? "First" : "Try"}: {first.name}</span>
+            <span class="muted">· {first.reps}</span>
+            <span class="t-cue-text">{first.cue}</span>
+          </p>
+        {/if}
         <div class="t-actions">
           {#if n.break_for_ms}
             <button class="btn primary" disabled={busy} onclick={() => act(n.rule_id, "break")}>
@@ -147,9 +203,14 @@
   <div class="overlay">
     {#each shown as n (n.rule_id)}
       {@const f = fraction(n)}
-      <section class="o-nag" aria-live="polite">
+      {@const sv = stepView(n)}
+      <section class="o-nag" class:with-routine={sv !== null} aria-live="polite">
         {#if n.break_until !== null}
           <p class="o-rule">{n.rule_name}</p>
+          {#if n.routine?.note}
+            <p class="o-note">{n.routine.note}</p>
+          {/if}
+          <div class="o-break">
           <div class="o-timer" class:ring={f !== null}>
             {#if f !== null}
               <svg width={RING} height={RING} viewBox="0 0 {RING} {RING}" aria-hidden="true">
@@ -170,7 +231,46 @@
               {clock(n.break_until - now)}
             </span>
           </div>
-          <p class="o-hint">Stand up, look away, stretch.</p>
+          {#if sv && n.routine}
+            {@const cur = n.routine.steps[sv.index]}
+            <div class="o-routine">
+              <div class="o-step">
+                <p class="o-step-head">
+                  <span class="o-step-n">{sv.index + 1} / {n.routine.steps.length}</span>
+                  <span class="o-step-name">{cur.name}</span>
+                  <span class="o-step-reps">{cur.reps}</span>
+                </p>
+                <ol class="o-lines">
+                  {#each cur.lines as line, i (i)}
+                    <li>{line}</li>
+                  {/each}
+                </ol>
+                <p class="o-step-left" role="timer" aria-label="Step time left">
+                  {clock(sv.left)}
+                  {#if sv.index < n.routine.steps.length - 1}
+                    <button class="btn ghost light sm" onclick={() => nextStep(n)}>
+                      Next
+                      <Icon name="skip" size={14} />
+                    </button>
+                  {/if}
+                </p>
+              </div>
+              <ol class="o-list" aria-label="Routine">
+                {#each n.routine.steps as s, i (s.id)}
+                  <li class:done={i < sv.index} class:current={i === sv.index}>
+                    <span class="o-list-name">{s.name}</span>
+                    <span class="o-list-secs">{clock(s.seconds * 1000)}</span>
+                  </li>
+                {/each}
+              </ol>
+            </div>
+          {/if}
+          </div>
+          {#if !sv}
+            <p class="o-hint">Stand up, look away, stretch.</p>
+          {:else}
+            <p class="o-hint small">Not medical advice. Stop anything that hurts.</p>
+          {/if}
           <div class="o-actions">
             <button class="btn ghost light" disabled={busy} onclick={() => act(n.rule_id, "skip")}>
               End break early
@@ -179,6 +279,12 @@
         {:else}
           <h1>{n.rule_name}</h1>
           <p class="o-message">{n.message}</p>
+          {#if n.routine && n.routine.steps.length > 0}
+            <p class="o-preview">
+              {n.routine.steps.length > 1 ? "Planned" : "Suggested"}:
+              {n.routine.steps.map((s) => s.name).join(", ")}
+            </p>
+          {/if}
           <p class="o-since">Nagging for {duration(Math.max(0, now - n.since))}</p>
           <div class="o-actions">
             {#if n.break_for_ms}
@@ -208,6 +314,9 @@
       </section>
     {/each}
     <p class="o-keys">
+      {#if shown[0].break_until !== null && shown[0].routine}
+        <kbd class="o-kbd">Space</kbd> next step ·
+      {/if}
       Press <kbd class="o-kbd">Esc</kbd> to
       {shown[0].break_until !== null ? "end the break early" : "skip"}
     </p>
@@ -315,6 +424,26 @@
     line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  .t-cue {
+    margin: -4px 0 10px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    font-size: 12.5px;
+    line-height: 1.4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 6px;
+  }
+  .t-cue-name {
+    font-weight: 600;
+    color: var(--accent-fg);
+  }
+  .t-cue-text {
+    flex-basis: 100%;
+    color: var(--text-2);
   }
 
   .t-actions {
@@ -441,6 +570,122 @@
     font-size: 18px;
     color: var(--o-text-2);
     margin: 24px 0;
+  }
+  .o-hint.small {
+    font-size: 13px;
+    color: var(--o-muted);
+    margin: 16px 0;
+  }
+  .o-note {
+    margin: -8px 0 20px;
+    font-size: 15px;
+    color: var(--o-muted);
+  }
+  .o-preview {
+    margin: 0 0 12px;
+    font-size: 15px;
+    color: var(--o-muted);
+    max-width: 640px;
+  }
+
+  /* ---- Routine ---- */
+  .o-break {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 56px;
+    flex-wrap: wrap;
+  }
+  .o-routine {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    text-align: left;
+    max-width: 720px;
+  }
+  .o-step {
+    flex: 1 1 360px;
+    min-width: 0;
+  }
+  .o-step-head {
+    margin: 0 0 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .o-step-n {
+    font-size: 13px;
+    color: var(--o-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .o-step-name {
+    font-size: 28px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  .o-step-reps {
+    font-size: 15px;
+    color: var(--o-text-2);
+  }
+  .o-lines {
+    margin: 0;
+    padding-left: 22px;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--o-text-2);
+  }
+  .o-lines li + li {
+    margin-top: 4px;
+  }
+  .o-step-left {
+    margin: 14px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 24px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .o-step-left .btn.sm {
+    font-size: 13px;
+    padding: 4px 10px;
+  }
+  .o-list {
+    flex: 0 0 200px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+    color: var(--o-muted);
+  }
+  .o-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 5px 8px;
+    border-left: 2px solid rgb(255 255 255 / 0.12);
+  }
+  .o-list li.done {
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+  .o-list li.current {
+    color: var(--o-text);
+    border-left-color: var(--ring-fill);
+    font-weight: 600;
+  }
+  .o-list-secs {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 900px) {
+    .o-routine {
+      flex-direction: column;
+      gap: 16px;
+    }
+    .o-list {
+      flex-basis: auto;
+    }
   }
 
   .o-actions {

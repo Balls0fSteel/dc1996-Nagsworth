@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use ns_core::config::Exercises as ExercisesConfig;
 use ns_core::{Activity, Clock, ControlCommand, Event, EventBus, NagEvent};
 use tokio::sync::{broadcast, mpsc, watch};
 use tokio::time::MissedTickBehavior;
@@ -15,10 +16,20 @@ pub enum EngineCommand {
     ReplaceRules(RuleSet),
     /// `tracking.hands_on_games` changed in the config.
     SetHandsOnGames(bool),
+    /// `[exercises]` changed in the config.
+    SetExercises(ExercisesConfig),
     Shutdown,
 }
 
-pub type PersistFn = Box<dyn Fn(Vec<(String, String)>) + Send + Sync>;
+/// What the engine persists: rule counters and the exercise rotation.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct EngineState {
+    pub counters: Vec<(String, String)>,
+    /// JSON, `None` without exercises.
+    pub rotation: Option<String>,
+}
+
+pub type PersistFn = Box<dyn Fn(EngineState) + Send + Sync>;
 
 /// Runs an [`Engine`]: 1 s ticks, control commands from the bus, nag events
 /// to the bus, snapshots to a watch channel, counters persisted every minute.
@@ -41,7 +52,10 @@ impl EngineTask {
 
     fn save(&self) {
         if let Some(persist) = &self.persist {
-            persist(self.engine.export_counters());
+            persist(EngineState {
+                counters: self.engine.export_counters(),
+                rotation: self.engine.export_rotation(),
+            });
         }
     }
 
@@ -73,6 +87,7 @@ impl EngineTask {
                         self.engine.set_hands_on_games(on);
                         self.snapshot.send_replace(self.engine.snapshot(self.clock.now()));
                     }
+                    Some(EngineCommand::SetExercises(cfg)) => self.engine.set_exercises_config(cfg),
                     Some(EngineCommand::Shutdown) | None => break,
                 },
                 event = control.recv() => match event {
@@ -133,7 +148,7 @@ mod tests {
             bus: bus.clone(),
             activity: arx,
             snapshot: stx,
-            persist: Some(Box::new(move |c| *saved2.lock().unwrap() = c)),
+            persist: Some(Box::new(move |c| *saved2.lock().unwrap() = c.counters)),
             tick: Duration::from_secs(1),
         };
         let (ctx, crx) = mpsc::channel(4);

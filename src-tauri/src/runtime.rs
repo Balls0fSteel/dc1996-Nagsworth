@@ -14,7 +14,9 @@ use ns_core::{
     Activity, Clock, ControlCommand, Event, EventBus, LocalDay, NagEvent, NagLevel, SystemClock,
 };
 use ns_platform::Platform;
-use ns_rules::{Engine, EngineCommand, EngineSnapshot, EngineTask, RuleSet};
+use ns_rules::{
+    Catalog, Engine, EngineCommand, EngineSnapshot, EngineTask, ExerciseSetup, RuleSet,
+};
 use ns_storage::StorageHandle;
 use ns_tracker::segmenter::SegmenterTask;
 use ns_tracker::web::WebTask;
@@ -23,6 +25,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
 const READING_MODE_KEY: &str = "engine.reading_mode";
+const ROTATION_KEY: &str = "exercises.rotation";
 
 pub struct Runtime {
     rt: tokio::runtime::Runtime,
@@ -54,12 +57,16 @@ impl FileConfigStore {
         // `tracking.input_window_s` does not: the segmenter reads it at start,
         // so changing it needs a restart (the Settings page says so).
         let hands_on_games = cfg.tracking.hands_on_games;
+        let exercises = cfg.exercises.clone();
         *self.config.write().unwrap() = cfg;
         self.engine_cmd
             .try_send(EngineCommand::ReplaceRules(rules))
             .map_err(|e| format!("engine not running: {e}"))?;
         self.engine_cmd
             .try_send(EngineCommand::SetHandsOnGames(hands_on_games))
+            .map_err(|e| format!("engine not running: {e}"))?;
+        self.engine_cmd
+            .try_send(EngineCommand::SetExercises(exercises))
             .map_err(|e| format!("engine not running: {e}"))
     }
 
@@ -118,6 +125,17 @@ impl Runtime {
             .map(|v| v == "true")
             .unwrap_or(cfg.general.reading_mode);
         let saved_counters = storage.call_blocking(|db| db.rule_states())?;
+        let saved_rotation = storage.call_blocking(|db| db.kv_get(ROTATION_KEY))?;
+
+        // Built-in exercises plus the user's exercises.toml.
+        let catalog = match Catalog::builtin_and_file(&data_dir.join("exercises.toml")) {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!("ignoring exercises file: {e}");
+                Catalog::builtin()
+            }
+        };
+        let catalog = Arc::new(catalog);
 
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
@@ -191,8 +209,15 @@ impl Runtime {
             cfg.general.day_start,
             reading_mode,
             cfg.tracking.hands_on_games,
-        );
+        )
+        .with_exercises(ExerciseSetup::new(
+            (*catalog).clone(),
+            cfg.exercises.clone(),
+        ));
         engine.import_counters(&saved_counters);
+        if let Some(json) = &saved_rotation {
+            engine.import_rotation(json);
+        }
         let (snap_tx, snap_rx) = watch::channel(engine.snapshot(clock.now()));
         let (engine_cmd, engine_cmd_rx) = mpsc::channel(8);
         let persist_storage = storage.clone();
@@ -204,9 +229,15 @@ impl Runtime {
                 bus: bus.clone(),
                 activity: activity_rx.clone(),
                 snapshot: snap_tx,
-                persist: Some(Box::new(move |counters| {
+                persist: Some(Box::new(move |state| {
                     let now = persist_clock.now();
-                    persist_storage.send(move |db| db.save_rule_states(&counters, now));
+                    persist_storage.send(move |db| {
+                        db.save_rule_states(&state.counters, now)?;
+                        match &state.rotation {
+                            Some(json) => db.kv_set(ROTATION_KEY, json),
+                            None => Ok(()),
+                        }
+                    });
                 })),
                 tick: Duration::from_secs(1),
             }
@@ -239,6 +270,7 @@ impl Runtime {
             ext_tx,
             ext_clients: Arc::default(),
             backup_dir: data_dir.join("backups"),
+            catalog,
         };
         let api_addr = match rt.block_on(ns_api::serve(api_state, &cfg.api.bind, cfg.api.port)) {
             Ok(addr) => Some(addr),
@@ -332,8 +364,21 @@ async fn side_effects(
                     | NagEvent::Dismiss { at, .. } => *at,
                     NagEvent::BreakStarted { .. } => SystemClock.now(),
                 };
+                let routine = match &nag {
+                    NagEvent::Raise { routine, .. } | NagEvent::BreakStarted { routine, .. } => {
+                        routine.as_ref().and_then(|r| serde_json::to_string(r).ok())
+                    }
+                    _ => None,
+                };
                 storage.send(move |db| {
-                    db.log_nag(&rule_id, kind, level_s.as_deref(), reason_s.as_deref(), at)
+                    db.log_nag(
+                        &rule_id,
+                        kind,
+                        level_s.as_deref(),
+                        reason_s.as_deref(),
+                        at,
+                        routine.as_deref(),
+                    )
                 });
                 if level == Some(NagLevel::Lock) {
                     let p = platform.clone();
@@ -409,7 +454,7 @@ mod tests {
         )]));
         let rt = Runtime::start(dir.clone(), platform).unwrap();
         assert!(dir.join("config.toml").exists());
-        assert_eq!(rt.engine.borrow().rules.len(), 4);
+        assert_eq!(rt.engine.borrow().rules.len(), 5);
         assert!(rt.api_addr.is_some());
         let token = rt.token.clone();
         rt.shutdown();

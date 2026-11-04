@@ -6,6 +6,8 @@
     downloadExport,
     getAutostart,
     setAutostart,
+    type Equipment,
+    type Exercise,
     type Health,
     type StateResponse,
   } from "../lib/api";
@@ -14,8 +16,11 @@
   import {
     INPUT_WINDOW_MAX,
     INPUT_WINDOW_MIN,
+    readExercises,
     readHandsOn,
+    withExercises,
     withHandsOn,
+    type ExerciseSettings,
     type HandsOnSettings,
   } from "../lib/toml";
   import { updates } from "../lib/update.svelte";
@@ -51,6 +56,24 @@
   let handsOn = $state<HandsOnSettings | null | undefined>(undefined);
   let handsOnBusy = $state(false);
 
+  /** `[exercises]` from the config file and the catalogue; `undefined` while loading, `null` if it failed. */
+  let exercises = $state<ExerciseSettings | null | undefined>(undefined);
+  let catalog = $state<Exercise[]>([]);
+  let exercisesBusy = $state(false);
+  let showCatalog = $state(false);
+  let openExercise = $state<string | null>(null);
+
+  const EQUIPMENT: readonly { id: Equipment; label: string; hint: string }[] = [
+    { id: "band", label: "Resistance band", hint: "pull-aparts and rows: the best evidence for neck and shoulder pain" },
+    { id: "stairs", label: "Stairs nearby", hint: "stair climbs as exercise snacks" },
+    { id: "floor", label: "Room to lie down", hint: "glute bridges, bird dogs" },
+  ];
+  const GRADE: Record<Exercise["evidence"], string> = {
+    A: "meta-analysis or several trials",
+    B: "one trial or several small ones",
+    C: "small or single study, low risk",
+  };
+
   let exportDays = $state(30);
   let exporting = $state<"csv" | "json" | null>(null);
   let backingUp = $state(false);
@@ -83,11 +106,19 @@
       });
     api
       .rules()
-      .then((r) => (handsOn = readHandsOn(r.toml)))
+      .then((r) => {
+        handsOn = readHandsOn(r.toml);
+        exercises = readExercises(r.toml);
+      })
       .catch((e) => {
         handsOn = null;
+        exercises = null;
         notify.err(e);
       });
+    api
+      .exercises()
+      .then((r) => (catalog = r.exercises))
+      .catch((e) => notify.err(e));
     void updates.start();
   });
   onDestroy(() => clearInterval(timer));
@@ -153,6 +184,53 @@
       handsOnBusy = false;
     }
   }
+
+  /** Edits `[exercises]` in the config file as it is now on disk and saves it. */
+  async function saveExercises(patch: Partial<ExerciseSettings>, done: string) {
+    if (exercisesBusy) return;
+    exercisesBusy = true;
+    try {
+      const { toml } = await api.rules();
+      const r = await api.saveRules(withExercises(toml, patch));
+      exercises = readExercises(r.toml);
+      notify.ok(done);
+    } catch (e) {
+      notify.err(e);
+      exercises = await api
+        .rules()
+        .then((r) => readExercises(r.toml))
+        .catch(() => exercises ?? null);
+    } finally {
+      exercisesBusy = false;
+    }
+  }
+
+  function toggleEquipment(id: Equipment, on: boolean) {
+    if (!exercises) return;
+    const set = new Set(exercises.equipment);
+    if (on) set.add(id);
+    else set.delete(id);
+    const label = EQUIPMENT.find((e) => e.id === id)?.label ?? id;
+    void saveExercises(
+      { equipment: EQUIPMENT.map((e) => e.id).filter((e) => set.has(e)) },
+      on ? `${label}: those exercises can come up` : `${label}: those exercises stay out`,
+    );
+  }
+
+  function toggleExercise(ex: Exercise, on: boolean) {
+    if (!exercises) return;
+    const set = new Set(exercises.exclude);
+    if (on) set.delete(ex.id);
+    else set.add(ex.id);
+    void saveExercises(
+      { exclude: catalog.map((e) => e.id).filter((id) => set.has(id)) },
+      on ? `${ex.name} is back in the rotation` : `${ex.name} will not be suggested`,
+    );
+  }
+
+  const excludedCount = $derived(
+    exercises ? catalog.filter((e) => exercises?.exclude.includes(e.id)).length : 0,
+  );
 
   function setInputWindow(input: HTMLInputElement) {
     if (!handsOn) return;
@@ -350,6 +428,102 @@
       <p class="small muted explain">
         Controllers: XInput on Windows. On Linux only keyboard and mouse count.
       </p>
+    {/if}
+  </Card>
+
+  <Card title="Break exercises" subtitle="What a break suggests depends on its length and on how long you have been at it. Not medical advice.">
+    {#if exercises === undefined}
+      <div class="line-placeholder"></div>
+    {:else if exercises === null}
+      <p class="small muted line">The config file could not be read; edit it on the Rules tab.</p>
+    {:else}
+      <div class="line">
+        <Switch
+          checked={exercises.enabled}
+          disabled={exercisesBusy}
+          label="Suggest exercises during breaks"
+          onchange={(on) =>
+            saveExercises({ enabled: on }, on ? "Breaks suggest exercises" : "Breaks show only the timer")}
+        />
+      </div>
+      <div class="line">
+        <Switch
+          checked={exercises.walks}
+          disabled={exercisesBusy || !exercises.enabled}
+          label="Include walks"
+          onchange={(on) =>
+            saveExercises({ walks: on }, on ? "Longer breaks start with a walk" : "Squats stand in for walks")}
+        />
+      </div>
+      <p class="small muted explain sub">
+        A walk is the best-supported break: it scales from one to five minutes with the time you
+        sat. Turn it off if there is nowhere to walk.
+      </p>
+      <h3 class="sub-head">At the desk</h3>
+      <div class="equipment">
+        {#each EQUIPMENT as eq (eq.id)}
+          <label class="equip">
+            <input
+              type="checkbox"
+              checked={exercises.equipment.includes(eq.id)}
+              disabled={exercisesBusy || !exercises.enabled}
+              onchange={(e) => toggleEquipment(eq.id, e.currentTarget.checked)}
+            />
+            <span>{eq.label}</span>
+            <span class="small muted">{eq.hint}</span>
+          </label>
+        {/each}
+      </div>
+      <div class="catalog-head">
+        <button class="btn ghost sm" onclick={() => (showCatalog = !showCatalog)}>
+          <Icon name={showCatalog ? "x" : "rules"} size={14} />
+          {showCatalog ? "Hide the list" : `All ${catalog.length} exercises`}
+        </button>
+        {#if excludedCount > 0}
+          <span class="small muted">{excludedCount} switched off</span>
+        {/if}
+      </div>
+      {#if showCatalog}
+        <ul class="catalog">
+          {#each catalog as ex (ex.id)}
+            {@const on = !exercises.exclude.includes(ex.id)}
+            {@const needs = ex.equipment.filter((q) => !exercises?.equipment.includes(q))}
+            <li class="ex" class:off={!on}>
+              <div class="ex-row">
+                <Switch
+                  checked={on}
+                  disabled={exercisesBusy || !exercises.enabled}
+                  title={on ? `Stop suggesting ${ex.name}` : `Suggest ${ex.name} again`}
+                  onchange={(v) => toggleExercise(ex, v)}
+                />
+                <button
+                  class="ex-name"
+                  aria-expanded={openExercise === ex.id}
+                  onclick={() => (openExercise = openExercise === ex.id ? null : ex.id)}
+                >
+                  {ex.name}
+                </button>
+                <span class="pill" title="Body region">{ex.tags[0].replaceAll("_", " ")}</span>
+                <span class="pill" title={`Evidence: ${GRADE[ex.evidence]}`}>{ex.evidence}</span>
+                <span class="small muted num">{ex.reps}</span>
+                {#if needs.length > 0}
+                  <span class="small muted">needs {needs.join(", ")}</span>
+                {/if}
+              </div>
+              {#if openExercise === ex.id}
+                <div class="ex-detail">
+                  <ol>
+                    {#each ex.steps as line, i (i)}
+                      <li>{line}</li>
+                    {/each}
+                  </ol>
+                  <p class="small muted">{ex.why}</p>
+                </div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
     {/if}
   </Card>
 
@@ -607,6 +781,71 @@
     margin-top: var(--sp-1);
     padding-left: 40px;
   }
+  /* ---- Break exercises ---- */
+  .equipment {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .equip {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: baseline;
+    gap: 0 var(--sp-2);
+    cursor: pointer;
+  }
+  .equip input {
+    accent-color: var(--accent);
+  }
+  .catalog-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
+  }
+  .catalog {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+    border-top: 1px solid var(--border);
+  }
+  .ex {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .ex.off .ex-name {
+    color: var(--muted);
+  }
+  .ex-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+  .ex-name {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+  }
+  .ex-name:hover {
+    text-decoration: underline;
+  }
+  .ex-detail {
+    padding: var(--sp-2) 0 var(--sp-2) 44px;
+  }
+  .ex-detail ol {
+    margin: 0 0 var(--sp-2);
+    padding-left: 18px;
+  }
+  .ex-detail p {
+    margin: 0;
+  }
+
   .window-row {
     display: flex;
     flex-wrap: wrap;

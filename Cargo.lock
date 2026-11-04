@@ -2349,6 +2349,7 @@ dependencies = [
  "humantime",
  "humantime-serde",
  "ns-core",
+ "rand",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

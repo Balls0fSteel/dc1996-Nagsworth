@@ -55,6 +55,7 @@ fn fixture() -> Fixture {
         ext_tx,
         ext_clients: Arc::default(),
         backup_dir: std::env::temp_dir().join(format!("ns-api-backup-{}", std::process::id())),
+        catalog: Arc::new(ns_rules::Catalog::builtin()),
     };
     Fixture {
         app: router(state),
@@ -187,10 +188,27 @@ async fn control_publishes_on_the_bus() {
 }
 
 #[tokio::test]
+async fn exercises_lists_the_catalog_and_config() {
+    let f = fixture();
+    let (status, body) = send(&f.app, get("/v1/exercises", Some(&f.token))).await;
+    assert_eq!(status, StatusCode::OK);
+    let list = body["exercises"].as_array().unwrap();
+    assert_eq!(list.len(), 28);
+    assert!(
+        list.iter()
+            .any(|e| e["id"] == "walk" && e["evidence"] == "A")
+    );
+    assert_eq!(body["config"]["enabled"], true);
+    assert_eq!(body["config"]["walks"], true);
+    let (status, _) = send(&f.app, get("/v1/exercises", None)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn rules_validate_on_put() {
     let f = fixture();
     let (_, body) = send(&f.app, get("/v1/rules", Some(&f.token))).await;
-    assert_eq!(body["rules"].as_array().unwrap().len(), 4);
+    assert_eq!(body["rules"].as_array().unwrap().len(), 5);
     let bad = Request::put("/v1/rules")
         .header(header::AUTHORIZATION, format!("Bearer {}", f.token))
         .body(Body::from("[[rules]]\nid = \"x\"\n"))

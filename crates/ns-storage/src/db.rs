@@ -14,6 +14,7 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
     Migrations::new(vec![
         M::up(include_str!("../migrations/001_init.sql")),
         M::up(include_str!("../migrations/002_hands_on.sql")),
+        M::up(include_str!("../migrations/003_routines.sql")),
     ])
 });
 
@@ -56,6 +57,8 @@ pub struct NagLogEntry {
     pub level: Option<String>,
     pub reason: Option<String>,
     pub at: Timestamp,
+    /// The suggested exercises (`Routine` JSON) of a raise or break start.
+    pub routine: Option<String>,
 }
 
 const APP_COLUMNS: &str = "a.id, a.exe_name, a.exe_path, a.display_name, a.category_id, c.name, \
@@ -416,17 +419,19 @@ impl Db {
         level: Option<&str>,
         reason: Option<&str>,
         at: Timestamp,
+        routine: Option<&str>,
     ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO nag_events (rule_id, kind, level, reason, at) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![rule_id, kind, level, reason, at],
+            "INSERT INTO nag_events (rule_id, kind, level, reason, at, routine)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![rule_id, kind, level, reason, at, routine],
         )?;
         Ok(())
     }
 
     pub fn nags(&self, since: Timestamp, limit: u32) -> Result<Vec<NagLogEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, rule_id, kind, level, reason, at FROM nag_events
+            "SELECT id, rule_id, kind, level, reason, at, routine FROM nag_events
              WHERE at >= ?1 ORDER BY at DESC, id DESC LIMIT ?2",
         )?;
         let rows = stmt.query_map(params![since, limit], |r| {
@@ -437,6 +442,7 @@ impl Db {
                 level: r.get(3)?,
                 reason: r.get(4)?,
                 at: r.get(5)?,
+                routine: r.get(6)?,
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)

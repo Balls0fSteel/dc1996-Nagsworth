@@ -105,6 +105,11 @@ impl LocalDay {
     pub fn prev(self) -> Self {
         LocalDay(self.0.previous_day().unwrap_or(self.0))
     }
+
+    /// Whole days from `earlier` to this day (negative if `earlier` is later).
+    pub fn days_since(self, earlier: LocalDay) -> i64 {
+        (self.0 - earlier.0).whole_days()
+    }
 }
 
 impl fmt::Display for LocalDay {

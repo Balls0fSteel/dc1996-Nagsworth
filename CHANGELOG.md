@@ -2,6 +2,69 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-05_001500_1793834100: Break exercises (docs/EXERCISES.md)
+
+- **Default rules** (`config/default.toml`): `micro-break` every 20 min for
+  30 s with `exercises = { tags = ["eyes", "neck", "shoulders", "wrists"] }`,
+  new `move-break` every 30 min for 2 min (toast, tags walk/legs/hips),
+  `rest-break` every 60 min for 10 min with the full planner; `[exercises]`
+  with `enabled`, `equipment`, `exclude`, `walks`. Existing installs keep
+  their own config.toml.
+- **Catalogue** `config/exercises.toml`: 28 items (14 seated micro items,
+  14 standing; stairs, two band and two floor items behind equipment
+  flags), each with tags, posture, seconds, reps, a toast cue, 1-4 overlay
+  lines, an evidence grade and the reason with its source. Built in with
+  `include_str!`; `<data dir>/exercises.toml` replaces or adds by id,
+  `enabled = false` hides.
+- **ns-core**: `config::Exercises` and `Equipment`; `Routine` and
+  `RoutineStep`; `NagEvent::Raise.routine` and `BreakStarted.routine`;
+  `LocalDay::days_since`.
+- **ns-rules** `exercises/`: `Catalog` (parse, validate, merge),
+  `planner::plan` (one item under a minute; a walk scaled 1 to 5 min by the
+  time sat and capped at 60% of the budget, region-balanced items, breathing
+  last in long routines; weights by days since shown, grade A, day load,
+  the rule's previous items; seeded `SmallRng`), `Rotation` (JSON in
+  `settings` as `exercises.rotation`). `Rule.exercises` (`false`, `true` or
+  `{ tags }`). The engine plans when a break rule's nag is raised, keeps
+  the routine through a snooze, reuses it at `StartBreakNow` (plans fresh
+  for a tray start) and notes it in the rotation; `RuleSnapshot.routine`;
+  `Engine::with_exercises`, `set_exercises_config`, `import_rotation`,
+  `export_rotation`; `EngineTask` persists `EngineState { counters,
+  rotation }`; `EngineCommand::SetExercises`. 14 new tests (catalogue
+  validity and merge, budgets, walk scaling, balance, flags, rotation,
+  determinism, day load).
+- **ns-storage**: migration 003 adds `nag_events.routine`; `log_nag` and
+  `nags` carry it.
+- **ns-api**: `GET /v1/exercises` (`{exercises, config}`); `/nags` rows
+  carry the routine as JSON; `ApiState.catalog`.
+- **ns-app**: the runtime loads the catalogue (built-in plus the user file,
+  a broken file is logged and ignored), restores the rotation, saves it
+  with the counters, sends `SetExercises` on every config save, and logs
+  routines with raise and break-start events; `NagView.routine`.
+- **UI**: the overlay shows the routine next to the ring (step number,
+  name, reps, lines, a per-step countdown, Next, the full list with done
+  and current steps, the note, "Not medical advice"); Space advances; the
+  toast shows "Try/First: <name> · <reps>" and the cue; the overlay nag
+  lists the planned items. Settings > Break exercises: on/off, walks,
+  equipment checkboxes, "All 28 exercises" with per-item switches,
+  expandable steps and reasons (edits `[exercises]` in the config text via
+  `lib/toml.ts` `readExercises` / `withExercises`). Rules cards get an
+  exercises chip; the nag history shows each routine's items.
+- Docs: ARCHITECTURE.md "Break exercises", MANUAL_CHECKS.md "Break
+  exercises", README, config comments, EXERCISES.md "Built:" notes;
+  `tools/seed_demo.py` seeds routines.
+- Verified: `cargo test --workspace` (115 tests), clippy `-D warnings`,
+  fmt, `npm run ui:check`, the Linux cross-check; the Tauri debug build on
+  the hidden desktop (`--no-tray`, scratch data dir): migrated to version
+  3, `/v1/exercises` listed 28 items, `POST /control/break/start` for
+  `rest-break` produced a six-step routine (walk 60 s first, cyclic
+  sighing last, 260 s of a 540 s budget) that `/state` and `/nags` both
+  carried, and the overlay rendered on both monitors with the step view.
+- Issues: the planner's `candidates` closure and a test config needed
+  clippy's shapes; the catalogue test first assumed a free cardio item
+  (stairs is the only one) and 20 free items (23). A PowerShell job could
+  not quote an inline Python one-liner; the token lookup moved to a file.
+
 ## 2026-11-04_223500_1793831700: Break exercises: third default rule decided
 
 - docs/EXERCISES.md "Default rules": `move-break` (every 30 min, 2 min,

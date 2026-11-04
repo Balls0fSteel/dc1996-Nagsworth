@@ -1,6 +1,9 @@
 # Break exercises: design brief
 
-Drafted 2026-11-04_222508_1793831108. Status: plan, nothing built.
+Drafted 2026-11-04_222508_1793831108. Status: built 2026-11-05_001500_1793834100 (CHANGELOG.md);
+the open questions 2-5 stayed as proposed (no audio cues, no completion
+tracking yet, band tier off by default, no habits). Differences from the
+plan are noted inline as "Built:".
 Decided 2026-11-04_223500_1793831700: open question 1, a third default rule `move-break`
 (every 30 min, 2 min, toast), is in; see "Default rules".
 Meant to be handed to an implementation session as its whole task once the
@@ -130,9 +133,10 @@ Tags double as body regions for rotation: `eyes`, `neck`, `shoulders`,
 | `glute-bridge` | Glute bridges | hips | 15, `floor` flag | B |
 | `bird-dog` | Bird dog | lower_back | 8 each side, `floor` flag | B |
 
-28 items; 20 without any flag. That gives a 10 min routine about 60
-distinct region-balanced combinations before anything repeats, and about a
-week of different micro-breaks at 10 min intervals.
+28 items; 23 without any flag (stairs, the two band items and the two floor
+items need one). That gives a 10 min routine dozens of distinct
+region-balanced combinations before anything repeats, and about a week of
+different micro-breaks at 20 min intervals.
 
 ## Picking a routine
 
@@ -185,6 +189,15 @@ is persisted in `settings` under `exercises.rotation` (JSON) through the
 storage actor, like the rule counters. It is a hint, not a counter: losing
 it only changes variety.
 
+Built: the planner is `crates/ns-rules/src/exercises/{catalog,planner,rotation}.rs`
+with `ExerciseSetup` holding the three together; the engine plans when a
+break rule's nag is *raised* (so the toast can show the first item's cue)
+and reuses that routine when the break starts; a break started from the
+tray plans at start. The seed is a hash of the rule id and the timestamp.
+The walk is capped at 60% of the budget, so a 2 min move break walks 64 s
+and a 10 min rest break after an hour walks the full 5 min. `today_active_ms`
+is the engine's own count of active ticks since the day start (any scope).
+
 ## Where it plugs in
 
 - **ns-core**: `NagEvent::BreakStarted` gains `routine: Option<Routine>`;
@@ -203,11 +216,13 @@ it only changes variety.
 - **ns-api**: `GET /v1/exercises` returns the merged catalogue (for the
   Settings page); `/state`'s engine snapshot carries the current routine
   when a break runs; `/nags` rows include it. The extension popup is out of
-  scope.
+  scope. Built: `GET /v1/exercises` returns `{exercises, config}`;
+  `RuleSnapshot.routine` is set while the nag is open or the break runs.
 - **ns-app** `nag_bridge.rs`: `NagView` gains `routine`; the overlay gets
-  it with `nags-changed`. A `nag_action` of `"next"` advances the step
-  (kept in the window, not the engine: the engine's break timer is the
-  truth, steps are a view on it).
+  it with `nags-changed`. Built: step advancing lives entirely in the
+  overlay page (no `"next"` command): steps run on their own seconds from
+  the break's start, and "Next" or Space restarts the schedule from the
+  next step at that moment.
 - **UI** `Nag.svelte`:
   - Overlay: ring timer on the left as now; on the right the routine as a
     list, the current step large with its own countdown and its 1-4 lines,
@@ -216,7 +231,10 @@ it only changes variety.
     hurts" in small print; Esc still ends the break. The overlay is per
     monitor, so the list renders on each.
   - Toast (micro-breaks): the item's `cue` under the message with a 20 s
-    countdown after "Start break" is clicked, instead of nothing.
+    countdown after "Start break" is clicked, instead of nothing. Built: the
+    toast shows "Try: <name> · <reps>" and the cue before the break starts;
+    a started break always opens the overlay (existing behaviour), which
+    shows the single step with its countdown.
   - Settings > Exercises card: enable, equipment checkboxes (band, stairs,
     floor), walks on/off, the catalogue as a list with per-item toggles
     (writes `exclude`), each item expandable to its steps, grade and `why`.

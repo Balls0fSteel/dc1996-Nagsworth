@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ns_core::{Event, EventBus, NagEvent, NagLevel, Timestamp};
+use ns_core::{Event, EventBus, NagEvent, NagLevel, Routine, Timestamp};
 use ns_platform::Platform;
 use ns_rules::{EngineSnapshot, NagState};
 use serde::Serialize;
@@ -29,6 +29,8 @@ pub struct NagView {
     pub snoozes_left: u32,
     /// Set while a started break runs.
     pub break_until: Option<Timestamp>,
+    /// The exercises to suggest (docs/EXERCISES.md).
+    pub routine: Option<Routine>,
 }
 
 #[derive(Clone, Default)]
@@ -54,6 +56,7 @@ impl NagBridge {
                 at,
                 break_for_ms,
                 snoozes_left,
+                routine,
             } => {
                 nags.insert(
                     rule_id.clone(),
@@ -66,6 +69,7 @@ impl NagBridge {
                         break_for_ms: *break_for_ms,
                         snoozes_left: *snoozes_left,
                         break_until: None,
+                        routine: routine.clone(),
                     },
                 );
             }
@@ -73,7 +77,11 @@ impl NagBridge {
                 Some(n) => n.level = *level,
                 None => return false,
             },
-            NagEvent::BreakStarted { rule_id, until } => {
+            NagEvent::BreakStarted {
+                rule_id,
+                until,
+                routine,
+            } => {
                 let rule = engine.rules.iter().find(|r| &r.id == rule_id);
                 let entry = nags.entry(rule_id.clone()).or_insert_with(|| NagView {
                     rule_id: rule_id.clone(),
@@ -86,8 +94,12 @@ impl NagBridge {
                     break_for_ms: None,
                     snoozes_left: 0,
                     break_until: None,
+                    routine: None,
                 });
                 entry.break_until = Some(*until);
+                if routine.is_some() {
+                    entry.routine = routine.clone();
+                }
                 // A break started from the tray or dashboard was never raised,
                 // so take the length from the snapshot for the progress ring.
                 if entry.break_for_ms.is_none() {
@@ -136,10 +148,12 @@ impl NagBridge {
                     at: since,
                     break_for_ms: (rule.break_ms > 0).then_some(rule.break_ms as u64),
                     snoozes_left: rule.snoozes_left,
+                    routine: rule.routine.clone(),
                 },
                 NagState::InBreak { until } => NagEvent::BreakStarted {
                     rule_id: rule.id.clone(),
                     until,
+                    routine: rule.routine.clone(),
                 },
                 _ => continue,
             };
@@ -256,6 +270,7 @@ mod tests {
             at: 1,
             break_for_ms: Some(1000),
             snoozes_left: 1,
+            routine: None,
         }
     }
 
@@ -279,6 +294,7 @@ mod tests {
             snoozes_left: 2,
             message: "m".into(),
             idle_policy: ns_rules::IdlePolicy::Pause,
+            routine: None,
         });
         snap.rules.push(RuleSnapshot {
             id: "b".into(),
@@ -293,6 +309,17 @@ mod tests {
             snoozes_left: 0,
             message: String::new(),
             idle_policy: ns_rules::IdlePolicy::Pause,
+            routine: Some(Routine {
+                steps: vec![ns_core::RoutineStep {
+                    id: "walk".into(),
+                    name: "Walk".into(),
+                    seconds: 20,
+                    reps: "20 s".into(),
+                    cue: "c".into(),
+                    lines: vec!["l".into()],
+                }],
+                note: None,
+            }),
         });
         let b = NagBridge::default();
         assert!(b.seed(&snap));
@@ -308,6 +335,7 @@ mod tests {
             (brk.break_until, brk.break_for_ms),
             (Some(99), Some(30_000))
         );
+        assert_eq!(brk.routine.as_ref().unwrap().steps[0].id, "walk");
         // The running break takes the overlay; the toast rule waits.
         assert_eq!(b.wants(), (false, true));
         assert!(!NagBridge::default().seed(&EngineSnapshot::default()));
@@ -348,7 +376,8 @@ mod tests {
         assert!(b.apply(
             &NagEvent::BreakStarted {
                 rule_id: "a".into(),
-                until: 10
+                until: 10,
+                routine: None,
             },
             &snap
         ));

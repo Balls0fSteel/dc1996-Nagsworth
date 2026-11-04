@@ -34,6 +34,22 @@ export type NagState =
   | { state: "in_break"; until: number }
   | { state: "satisfied"; since: number };
 
+/** One exercise of a break routine (`RoutineStep` in ns-core). */
+export interface RoutineStep {
+  id: string;
+  name: string;
+  seconds: number;
+  reps: string;
+  cue: string;
+  lines: string[];
+}
+
+/** What to do during a break (docs/EXERCISES.md). */
+export interface Routine {
+  steps: RoutineStep[];
+  note: string | null;
+}
+
 export interface RuleSnapshot {
   id: string;
   name: string;
@@ -48,6 +64,8 @@ export interface RuleSnapshot {
   message: string;
   /** The effective idle policy (the default resolved). */
   idle_policy: IdlePolicy;
+  /** The exercises of the open nag or the running break. */
+  routine: Routine | null;
 }
 
 export interface ExtClient {
@@ -140,6 +158,52 @@ export interface NagLogEntry {
   level: string | null;
   reason: string | null;
   at: number;
+  /** The suggested exercises of a raise or break start. */
+  routine: Routine | null;
+}
+
+export type ExerciseTag =
+  | "eyes"
+  | "neck"
+  | "shoulders"
+  | "upper_back"
+  | "wrists"
+  | "lower_back"
+  | "hips"
+  | "legs"
+  | "walk"
+  | "cardio"
+  | "breathing";
+
+export type Equipment = "band" | "stairs" | "floor";
+
+/** An item of the catalogue (`Exercise` in ns-rules). */
+export interface Exercise {
+  id: string;
+  name: string;
+  tags: ExerciseTag[];
+  posture: "seated" | "standing" | "floor";
+  seconds: number;
+  reps: string;
+  equipment: Equipment[];
+  cue: string;
+  steps: string[];
+  evidence: "A" | "B" | "C";
+  why: string;
+  enabled: boolean;
+}
+
+/** `[exercises]` in the config file. */
+export interface ExercisesConfig {
+  enabled: boolean;
+  equipment: Equipment[];
+  exclude: string[];
+  walks: boolean;
+}
+
+export interface ExercisesResponse {
+  exercises: Exercise[];
+  config: ExercisesConfig;
 }
 
 /** A humantime duration as the config writes it, e.g. "50m", "1h 30m", "0s". */
@@ -182,6 +246,8 @@ export interface RuleDef {
   /** `null` means the default: 5m, 3 per day. */
   snooze: SnoozeDef | null;
   message: string | null;
+  /** `false`: no exercises; `true`: the full planner; tags: only those regions. */
+  exercises: boolean | { tags: ExerciseTag[] };
 }
 
 export interface RulesResponse {
@@ -299,6 +365,7 @@ export const api = {
     ).then((r) => r.kinds),
   health: () => request<Health>("GET", "/health"),
   rules: () => request<RulesResponse>("GET", "/rules"),
+  exercises: () => request<ExercisesResponse>("GET", "/exercises"),
   saveRules: (toml: string) => request<RulesResponse>("PUT", "/rules", toml, true),
   nags: (limit = 50) =>
     request<{ nags: NagLogEntry[] }>("GET", `/nags?limit=${limit}`).then((r) => r.nags),
