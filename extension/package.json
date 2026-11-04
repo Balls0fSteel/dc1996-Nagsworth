@@ -6,12 +6,14 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "package": "node scripts/build.mjs && node scripts/package.mjs",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.0",
     "typescript": "~5.9.0",
     "vite": "^8.3.0",
+    "vitest": "^5.1.0",
     "web-ext": "^10.8.0"
   }
 }

@@ -26,6 +26,7 @@ jobs:
       - run: npm run ui:build
       - run: npm run ui:check
       - run: npm run ext:check
+      - run: npm run ext:test
       - run: npm run ext:build
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
