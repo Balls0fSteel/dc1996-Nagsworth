@@ -383,6 +383,7 @@ impl SegmenterTask {
                         title,
                         idle_ms: sample.idle_ms,
                         is_fullscreen: sample.fg.as_ref().is_some_and(|w| w.is_fullscreen),
+                        hands_on: false,
                     });
                 }
                 event = control.recv() => {
