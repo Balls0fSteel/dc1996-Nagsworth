@@ -20,6 +20,14 @@ min_segment_ms = 2000
 # "full" stores window titles, "none" stores only the app.
 store_titles = "full"
 retention_days = 365
+# Hands-on time: seconds that one key press, mouse move or controller input
+# counts as hands-on. 0 disables hands-on accounting.
+input_window_s = 5
+# Rules for the Game category count hands-on time by default
+# (idle_policy = "input" instead of "ignore").
+hands_on_games = true
+# Poll XInput controllers (Windows) so gamepad use counts as input.
+gamepad = true
 
 [web]
 # "host" stores only the site (example.com), "full" stores the whole URL.
@@ -36,7 +44,9 @@ bind = "127.0.0.1"
 #   continuous   limit = uninterrupted time, reset_after = rest that resets it
 #   schedule     windows = ["HH:MM-HH:MM", ...] when the scope is not allowed
 # scope: "any", { category = "Game" | "Work" | "Web" | "Other" }, { app = "game.exe" }
-# idle_policy: "pause" (idle time is rest) or "ignore" (idle time still counts).
+# idle_policy: "pause" (idle time is rest), "ignore" (idle time still counts) or
+#   "input" (only the input_window_s after each key, mouse or controller input
+#   counts). Game scope defaults to "input" while hands_on_games is on.
 # Escalation levels: toast, overlay, lock (lock calls LockWorkStation).
 
 [[rules]]

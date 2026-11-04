@@ -54,7 +54,18 @@ pub struct Tracking {
     pub min_segment_ms: u64,
     pub store_titles: StoreTitles,
     pub retention_days: u32,
+    /// Seconds that one key press, mouse move or controller input counts as
+    /// hands-on time. 0 disables hands-on accounting.
+    pub input_window_s: u64,
+    /// Rules for the Game category count hands-on time by default
+    /// (`idle_policy = "input"` instead of `"ignore"`).
+    pub hands_on_games: bool,
+    /// Poll XInput controllers (Windows) so gamepad use counts as input.
+    pub gamepad: bool,
 }
+
+/// Longest `input_window_s` the config accepts.
+pub const MAX_INPUT_WINDOW_S: u64 = 600;
 
 impl Default for Tracking {
     fn default() -> Self {
@@ -64,7 +75,17 @@ impl Default for Tracking {
             min_segment_ms: 2000,
             store_titles: StoreTitles::Full,
             retention_days: 365,
+            input_window_s: 5,
+            hands_on_games: true,
+            gamepad: true,
         }
+    }
+}
+
+impl Tracking {
+    /// `input_window_s` in milliseconds, clamped to [`MAX_INPUT_WINDOW_S`].
+    pub fn input_window_ms(&self) -> u64 {
+        self.input_window_s.min(MAX_INPUT_WINDOW_S) * 1000
     }
 }
 
@@ -199,7 +220,22 @@ mod tests {
         let c = Config::from_toml("[tracking]\npoll_ms = 500\n").unwrap();
         assert_eq!(c.tracking.poll_ms, 500);
         assert_eq!(c.tracking.idle_after_s, 120);
+        assert_eq!(c.tracking.input_window_s, 5);
+        assert!(c.tracking.hands_on_games);
+        assert!(c.tracking.gamepad);
         assert_eq!(c.api, Api::default());
+    }
+
+    #[test]
+    fn input_window_is_clamped() {
+        let c = Config::from_toml("[tracking]
+input_window_s = 100000
+").unwrap();
+        assert_eq!(c.tracking.input_window_ms(), MAX_INPUT_WINDOW_S * 1000);
+        let c = Config::from_toml("[tracking]
+input_window_s = 0
+").unwrap();
+        assert_eq!(c.tracking.input_window_ms(), 0);
     }
 
     #[test]

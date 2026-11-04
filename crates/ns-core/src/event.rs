@@ -26,6 +26,9 @@ pub struct Activity {
     pub title: Option<String>,
     pub idle_ms: u64,
     pub is_fullscreen: bool,
+    /// The last input on any device (keyboard, mouse, controller) is at most
+    /// `tracking.input_window_s` ago and the kind is active or idle.
+    pub hands_on: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
