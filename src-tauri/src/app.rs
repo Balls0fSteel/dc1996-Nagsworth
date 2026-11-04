@@ -1,8 +1,9 @@
 //! Tauri setup: single instance, tray, hidden main window that closes to the
 //! tray, nag windows, and runtime shutdown on quit.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
+use ns_core::config::Config;
 use ns_core::{Activity, ControlCommand, Event, EventBus};
 use ns_platform::Platform;
 use ns_rules::EngineSnapshot;
@@ -24,6 +25,7 @@ pub struct AppCtx {
     pub activity: watch::Receiver<Activity>,
     pub engine: watch::Receiver<EngineSnapshot>,
     pub platform: Arc<dyn Platform>,
+    pub config: Arc<RwLock<Config>>,
 }
 
 impl AppCtx {
@@ -84,6 +86,7 @@ pub fn run() {
         activity: runtime.activity.clone(),
         engine: runtime.engine.clone(),
         platform: platform.clone(),
+        config: runtime.config.clone(),
     };
     let bus = runtime.bus.clone();
     let engine = runtime.engine.clone();
@@ -105,6 +108,7 @@ pub fn run() {
             commands::get_api_info,
             commands::current_nags,
             commands::nag_action,
+            commands::nag_prefs,
             commands::open_dashboard,
             commands::resize_toast,
             commands::get_autostart,

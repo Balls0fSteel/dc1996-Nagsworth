@@ -33,6 +33,7 @@ struct Fixture {
     ext_rx: mpsc::Receiver<ExtEvent>,
     _engine: watch::Sender<EngineSnapshot>,
     _activity: watch::Sender<Activity>,
+    storage: StorageHandle,
 }
 
 fn fixture() -> Fixture {
@@ -41,8 +42,9 @@ fn fixture() -> Fixture {
     let (ext_tx, ext_rx) = mpsc::channel(16);
     let (etx, erx) = watch::channel(EngineSnapshot::default());
     let (atx, arx) = watch::channel(Activity::default());
+    let storage = StorageHandle::open_in_memory().unwrap();
     let state = ApiState {
-        storage: StorageHandle::open_in_memory().unwrap(),
+        storage: storage.clone(),
         bus: bus.clone(),
         clock: Arc::new(MockClock::new(1_800_000_000_000)),
         config: Arc::new(RwLock::new(Config::default())),
@@ -64,6 +66,7 @@ fn fixture() -> Fixture {
         ext_rx,
         _engine: etx,
         _activity: atx,
+        storage,
     }
 }
 
@@ -193,7 +196,7 @@ async fn exercises_lists_the_catalog_and_config() {
     let (status, body) = send(&f.app, get("/v1/exercises", Some(&f.token))).await;
     assert_eq!(status, StatusCode::OK);
     let list = body["exercises"].as_array().unwrap();
-    assert_eq!(list.len(), 28);
+    assert_eq!(list.len(), 30);
     assert!(
         list.iter()
             .any(|e| e["id"] == "walk" && e["evidence"] == "A")
@@ -235,6 +238,7 @@ async fn stats_and_apps_answer() {
         "/v1/stats/kinds",
         "/v1/stats/timeline?day=2026-11-02",
         "/v1/stats/web",
+        "/v1/stats/breaks?from=2026-11-01&to=2026-11-03",
         "/v1/apps",
         "/v1/categories",
         "/v1/nags",
@@ -307,4 +311,32 @@ async fn backup_writes_a_database_copy() {
     let path = std::path::PathBuf::from(body["path"].as_str().unwrap());
     assert!(path.exists());
     let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[tokio::test]
+async fn breaks_count_completed_and_ended_early() {
+    let f = fixture();
+    let now = 1_800_000_000_000;
+    f.storage
+        .call(move |db| {
+            let r = Some("{\"steps\":[],\"note\":null}");
+            db.log_nag("a", "break_started", None, None, now - 9_000, r)?;
+            db.log_nag("a", "dismiss", None, Some("break_taken"), now - 8_000, None)?;
+            db.log_nag("a", "break_started", None, None, now - 7_000, r)?;
+            db.log_nag("a", "dismiss", None, Some("ended_early"), now - 6_000, None)?;
+            db.log_nag("b", "break_started", None, None, now - 5_000, None)?;
+            db.log_nag("b", "dismiss", None, Some("break_taken"), now - 4_000, None)
+        })
+        .await
+        .unwrap();
+    let (s, body) = send(&f.app, get("/v1/stats/breaks", Some(&f.token))).await;
+    assert_eq!(s, StatusCode::OK, "{body}");
+    let t = &body["total"];
+    assert_eq!(t["started"], 3);
+    assert_eq!(t["completed"], 2);
+    assert_eq!(t["ended_early"], 1);
+    assert_eq!(t["with_exercises"], 2);
+    assert_eq!(t["with_exercises_completed"], 1);
+    assert_eq!(body["days"].as_array().unwrap().len(), 1);
+    assert_eq!(body["days"][0]["started"], 3);
 }

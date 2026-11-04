@@ -40,9 +40,17 @@ Left-clicking the icon opens the dashboard; the tooltip names the app in front.
    run out: the overlay closes.
 5. Settings > Break exercises: switch "Include walks" off, start a break
    from the tray: no "Walk" step, squats or sit-to-stands instead. Tick
-   "Resistance band", open "All 28 exercises", switch an item off: the Rules
+   "Resistance band", open "All 30 exercises", switch an item off: the Rules
    tab's nag history shows the routines of the raises and break starts.
-6. Restore the rules.
+6. Added 2026-11-04_232332_1793834612: switch "Tick when the next exercise starts" on, start the
+   rest break: each step change after the first plays one soft tick (once,
+   also with several monitors); Space advancing a step ticks too. Then press
+   Esc: the overlay closes at once ("end the break early" used to do
+   nothing) and History > Breaks counts one "Ended early".
+7. Switch "Include habits" on and start the rest break: one step is
+   "Drink a glass of water" or "Get some daylight"; the micro-break toast
+   never names one.
+8. Restore the rules.
 
 ## Nag during an exclusive-fullscreen game (Windows)
 

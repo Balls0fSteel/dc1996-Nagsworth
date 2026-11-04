@@ -8,7 +8,7 @@ use std::path::Path;
 
 use tokio::sync::{mpsc, oneshot};
 
-pub use db::{AppRow, Category, Db, NagLogEntry};
+pub use db::{AppRow, BreakRecord, Category, Db, NagLogEntry};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
@@ -329,6 +329,33 @@ mod tests {
         let nags = db.nags(0, 10).unwrap();
         assert_eq!(nags.len(), 2);
         assert_eq!(nags[0].kind, "dismiss");
+        // Breaks pair with the next dismiss of the same rule.
+        let r = Some("{\"steps\":[],\"note\":null}");
+        db.log_nag("a", "break_started", None, None, 1_000, r)
+            .unwrap();
+        db.log_nag("b", "break_started", None, None, 1_100, None)
+            .unwrap();
+        db.log_nag("a", "dismiss", None, Some("ended_early"), 1_300, None)
+            .unwrap();
+        db.log_nag("b", "dismiss", None, Some("break_taken"), 1_700, None)
+            .unwrap();
+        db.log_nag("a", "break_started", None, None, 2_000, r)
+            .unwrap();
+        db.log_nag("a", "dismiss", None, Some("break_taken"), 2_600, None)
+            .unwrap();
+        db.log_nag("a", "break_started", None, None, 3_000, r)
+            .unwrap();
+        let b = db.breaks(0, 10_000).unwrap();
+        assert_eq!(b.len(), 4);
+        assert_eq!(
+            (b[0].ended, b[0].outcome.as_deref(), b[0].exercises),
+            (Some(1_300), Some("ended_early"), true)
+        );
+        assert_eq!(b[1].outcome.as_deref(), Some("break_taken"));
+        assert!(!b[1].exercises);
+        assert_eq!(b[2].ended, Some(2_600));
+        assert_eq!(b[3].ended, None);
+        assert_eq!(db.breaks(1_500, 2_500).unwrap().len(), 1);
         db.save_rule_states(&[("r".into(), "{}".into())], 1)
             .unwrap();
         db.save_rule_states(&[("r".into(), "{\"a\":1}".into())], 2)

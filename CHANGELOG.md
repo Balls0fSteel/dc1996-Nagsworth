@@ -2,6 +2,41 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_232332_1793834612: Break completion tracking, step tick, habits; headless brief
+
+- Fix: Esc ("end the break early") during a running break did nothing: the
+  engine only handled `SkipBreak` for raised or snoozed nags. It now ends
+  the break with the new `DismissReason::EndedEarly` (counters reset as
+  for a finished break, since the user did rest).
+- Completion tracking: `Db::breaks` pairs each `break_started` row with
+  the next dismiss of the same rule by row id (the start's `at` is the wall
+  clock at logging, the dismiss's the engine tick, so ordering by `at`
+  could mis-pair); `GET /v1/stats/breaks?from&to` counts started,
+  completed, ended early and breaks with a routine per local day (a day of
+  margin on each side for offset changes). History has a "Breaks" card;
+  it hides itself against an older service without the endpoint.
+- Step tick: `[exercises] step_sound` (default off), a Settings switch,
+  the `nag_prefs` command; a short WebAudio sine tick when the routine
+  moves past its first step, played by the `overlay-0` window only so
+  several monitors do not echo. `Runtime.config` is now public for it.
+- Habits: `drink-water` and `daylight` (grade C, tag `habits`) in
+  `config/exercises.toml` (30 items), `[exercises] habits` (default off), a
+  Settings switch. With it on they skip a rule's tag filter in breaks of a
+  minute or more, at most one per routine, and every long break gets one;
+  micro-breaks keep to their tags.
+- `tools/seed_demo.py` seeds 14 paired breaks (a quarter ended early).
+- Verified: 108 tests, clippy `-D warnings`, fmt, `ui:check`; the built app
+  on the hidden desktop started a rest break over the API with habits on
+  (routine walk, drink-water, ear to shoulder, near-far, wall slides,
+  cyclic sighing), `/control/skip` ended it (state idle) and
+  `/stats/breaks` reported one ended early; against a seeded database the
+  History card and the two Settings switches render, and switching habits
+  off saved to the live config. Not checked: the tick by ear, Esc in a
+  real overlay (docs/MANUAL_CHECKS.md "Break exercises" 6-7).
+- docs/HEADLESS.md: headless-first proposal (`ns-runtime` crate,
+  `nagsworthd` per-user service, the GUI as an API client, discovery file,
+  nag board in the service, five phases, five open questions).
+
 ## 2026-11-04_231240_1793833960: Open questions reviewed
 
 - `lock` stays opt-in; no default rule will use it.

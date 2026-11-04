@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { api, type CategoryKind, type DailyUsage } from "../lib/api";
+  import { api, type BreakCounts, type CategoryKind, type DailyUsage } from "../lib/api";
   import { addDays, categoryColor, duration, hoursShort, localDayLabel, percent } from "../lib/format";
   import { errorText } from "../lib/notify.svelte";
   import { usePageToolbar } from "../lib/page.svelte";
@@ -33,7 +33,13 @@
   }
 
   let range = $state<Range>(storedRange());
-  let data = $state<{ today: string; from: string; to: string; rows: DailyUsage[] } | null>(null);
+  let data = $state<{
+    today: string;
+    from: string;
+    to: string;
+    rows: DailyUsage[];
+    breaks: BreakCounts | null;
+  } | null>(null);
   let error = $state<string | null>(null);
   let seq = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -50,9 +56,13 @@
     try {
       const { today } = await api.state();
       const from = addDays(today, -(r - 1));
-      const rows = await api.daily(from, today);
+      const [rows, breaks] = await Promise.all([
+        api.daily(from, today),
+        // An older service has no /stats/breaks; the page works without it.
+        api.breaks(from, today).then((b) => b.total).catch(() => null),
+      ]);
       if (my !== seq) return;
-      data = { today, from, to: today, rows };
+      data = { today, from, to: today, rows, breaks };
       error = null;
     } catch (e) {
       if (my === seq) error = errorText(e);
@@ -390,6 +400,36 @@
         color={catTotals[0]?.color}
       />
     </div>
+
+    {#if data.breaks}
+      {@const b = data.breaks}
+      <Card title="Breaks" subtitle="Breaks you started, and whether they ran to the end">
+        {#if b.started === 0}
+          <p class="small muted">
+            No breaks started in this range. A break started from a nag or the tray shows up here.
+          </p>
+        {:else}
+          <div class="tiles">
+            <StatTile label="Breaks started" value={String(b.started)} sub="last {days.length} days" />
+            <StatTile
+              label="Ran to the end"
+              value={String(b.completed)}
+              sub="{percent(b.completed, b.started)} of started breaks"
+            />
+            <StatTile
+              label="Ended early"
+              value={String(b.ended_early)}
+              sub={b.ended_early > 0 ? `${percent(b.ended_early, b.started)} of started breaks` : "none"}
+            />
+            <StatTile
+              label="With exercises"
+              value="{b.with_exercises_completed} of {b.with_exercises}"
+              sub={b.with_exercises > 0 ? "routines run to the end" : "none suggested"}
+            />
+          </div>
+        {/if}
+      </Card>
+    {/if}
 
     <Card title="Categories" subtitle="Totals for the range" padded={false}>
       <table class="table cats">

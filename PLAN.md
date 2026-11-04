@@ -402,11 +402,15 @@ catalogue file is read at start only.
    installed 0.1.0 offers the next release (docs/MANUAL_CHECKS.md).
 5. Backlog items: KDE Wayland window tracking, a structured rule editor
    (docs/BACKLOG.md).
-6. Break exercises follow-ups decided 2026-11-04_231240_1793833960 (docs/EXERCISES.md "Open
-   questions"): completion tracking on History, an opt-in step-change tick
-   (off by default), two or three `habits` items (drink water, look out of
-   a window), off by default. Band tier stays off until ticked. The user
-   catalogue file is still read at start only (known limitation).
+6. Break exercises follow-ups are built (2026-11-04_232332_1793834612, CHANGELOG.md):
+   completion tracking (History > Breaks), the opt-in step tick, two habit
+   items. Check them by hand (docs/MANUAL_CHECKS.md "Break exercises" 6-7);
+   the tick has not been heard yet. The user catalogue file is still read
+   at start only (docs/BACKLOG.md).
+7. Headless-first (docs/HEADLESS.md, 2026-11-04_232332_1793834612): a per-user service
+   `nagsworthd` with the GUI as its official client, in five phases. The
+   owner's answers to its open questions (tray owner, nags without the GUI,
+   installer, names, order) come first.
 
 ## Risks and open questions
 
@@ -432,5 +436,5 @@ catalogue file is read at start only.
 - **Decided 2026-11-04_231240_1793833960**: `lock` is never on in a default rule (opt-in
   only); the extension's store identity (gecko id, listing name) is part of
   the name check in next step 4.
-- **Open**: whether a headless service build (tracking + API, no WebView)
-  is wanted at all; M5 is done, so the old "before M5" no longer applies.
+- **Headless** (2026-11-04_232332_1793834612): wanted, headless-first with the GUI as a client;
+  proposal and open questions in docs/HEADLESS.md.

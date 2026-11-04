@@ -13,6 +13,9 @@
 //!    repeats back to back. Seeded, so tests reproduce.
 //! 5. Day load: after 4 h of activity lower-body items weigh double.
 //! 6. Evidence first: grade A weighs 1.5x within a region.
+//! 7. Habits (water, daylight) only with `[exercises] habits = true`: they
+//!    ignore the rule's tag filter in breaks of a minute or more, and long
+//!    breaks always get one when it fits.
 
 use ns_core::config::Exercises as ExercisesConfig;
 use ns_core::{LocalDay, Routine, RoutineStep};
@@ -136,7 +139,9 @@ pub fn plan(
         .filter(|e| !config.exclude.iter().any(|x| x == &e.id))
         .filter(|e| e.equipment.iter().all(|q| config.equipment.contains(q)))
         .filter(|e| !(e.is_walk() && !config.walks))
+        .filter(|e| !(e.is_habit() && !config.habits))
         .filter(|e| match input.tags {
+            Some(_) if e.is_habit() && input.break_ms >= MICRO_MS => true,
             Some(tags) => e.tags.iter().any(|t| tags.contains(t)),
             None => true,
         })
@@ -188,6 +193,20 @@ pub fn plan(
                     human(input.sat_ms)
                 ));
             }
+        }
+    }
+
+    // A habit in every long routine when they are on.
+    if long {
+        let habits: Vec<&Exercise> = eligible
+            .iter()
+            .copied()
+            .filter(|e| e.is_habit() && i64::from(e.seconds) <= left)
+            .collect();
+        if let Some(h) = picker.pick(&habits) {
+            steps.push(step(h, h.seconds));
+            regions.push(Tag::Habits);
+            left -= i64::from(h.seconds);
         }
     }
 
@@ -464,5 +483,49 @@ mod tests {
                 .count()
         };
         assert!(count(true) > count(false));
+    }
+
+    #[test]
+    fn habits_only_when_on() {
+        let cat = Catalog::builtin();
+        let off = ExercisesConfig::default();
+        let on = ExercisesConfig {
+            habits: true,
+            ..ExercisesConfig::default()
+        };
+        let eyes = [Tag::Eyes];
+        let moving = [Tag::Walk, Tag::Legs, Tag::Hips];
+        let mut in_move = 0;
+        for seed in 0..40 {
+            let mut i = input(600_000, 60 * 60_000, None);
+            i.seed = seed;
+            let r = plan(&cat, &off, &Rotation::default(), &i).unwrap();
+            assert!(r.steps.iter().all(|s| !cat.get(&s.id).unwrap().is_habit()));
+            let r = plan(&cat, &on, &Rotation::default(), &i).unwrap();
+            let habits = r
+                .steps
+                .iter()
+                .filter(|s| cat.get(&s.id).unwrap().is_habit())
+                .count();
+            assert_eq!(habits, 1, "seed {seed}");
+            assert!(r.total_seconds() <= 540, "seed {seed}");
+            // A desk micro-break keeps to its tags.
+            let mut i = input(30_000, 0, Some(&eyes));
+            i.seed = seed;
+            let r = plan(&cat, &on, &Rotation::default(), &i).unwrap();
+            assert!(!cat.get(&r.steps[0].id).unwrap().is_habit());
+            // A move break may offer one despite its tags.
+            let mut i = input(120_000, 10 * 60_000, Some(&moving));
+            i.seed = seed;
+            let r = plan(&cat, &on, &Rotation::default(), &i).unwrap();
+            let h = r
+                .steps
+                .iter()
+                .filter(|s| cat.get(&s.id).unwrap().is_habit())
+                .count();
+            assert!(h <= 1);
+            in_move += h;
+        }
+        assert!(in_move > 0);
     }
 }

@@ -48,6 +48,21 @@ pub fn nag_action(ctx: State<'_, AppCtx>, rule_id: String, action: String) -> Re
     Ok(())
 }
 
+/// What the nag windows need from the config.
+#[derive(serde::Serialize)]
+pub struct NagPrefs {
+    /// A soft tick on the overlay when the routine moves to the next step.
+    pub step_sound: bool,
+}
+
+#[tauri::command]
+pub fn nag_prefs(ctx: State<'_, AppCtx>) -> NagPrefs {
+    let cfg = ctx.config.read().unwrap_or_else(|e| e.into_inner());
+    NagPrefs {
+        step_sound: cfg.exercises.step_sound,
+    }
+}
+
 #[tauri::command]
 pub fn open_dashboard(app: AppHandle) {
     windows::show_dashboard(&app);

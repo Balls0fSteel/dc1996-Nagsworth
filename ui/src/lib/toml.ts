@@ -114,6 +114,8 @@ export interface ExerciseSettings {
   equipment: string[];
   exclude: string[];
   walks: boolean;
+  habits: boolean;
+  step_sound: boolean;
 }
 
 /** A TOML array of bare words or quoted strings, e.g. `["band", "floor"]`. */
@@ -131,7 +133,7 @@ function tomlStringArray(items: readonly string[]): string {
   return `[${items.map((s) => JSON.stringify(s)).join(", ")}]`;
 }
 
-/** Reads `[exercises]` with the service's defaults (on, nothing, nothing, walks on). */
+/** Reads `[exercises]` with the service's defaults (on, nothing, nothing, walks on, habits and tick off). */
 export function readExercises(src: string): ExerciseSettings {
   const enabled = getTableValue(src, "exercises", "enabled");
   const walks = getTableValue(src, "exercises", "walks");
@@ -140,6 +142,8 @@ export function readExercises(src: string): ExerciseSettings {
     equipment: parseStringArray(getTableValue(src, "exercises", "equipment")) ?? [],
     exclude: parseStringArray(getTableValue(src, "exercises", "exclude")) ?? [],
     walks: walks === null ? true : walks !== "false",
+    habits: getTableValue(src, "exercises", "habits") === "true",
+    step_sound: getTableValue(src, "exercises", "step_sound") === "true",
   };
 }
 
@@ -153,6 +157,8 @@ export function withExercises(src: string, s: Partial<ExerciseSettings>): string
   if (s.equipment !== undefined) set("equipment", tomlStringArray(s.equipment));
   if (s.exclude !== undefined) set("exclude", tomlStringArray(s.exclude));
   if (s.walks !== undefined) set("walks", String(s.walks));
+  if (s.habits !== undefined) set("habits", String(s.habits));
+  if (s.step_sound !== undefined) set("step_sound", String(s.step_sound));
   return out;
 }
 

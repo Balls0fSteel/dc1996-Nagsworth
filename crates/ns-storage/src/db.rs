@@ -61,6 +61,22 @@ pub struct NagLogEntry {
     pub routine: Option<String>,
 }
 
+/// One started break and how it ended (completion tracking,
+/// docs/EXERCISES.md).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BreakRecord {
+    pub rule_id: String,
+    pub started: Timestamp,
+    /// The dismiss that closed it; `None` while it runs (or if the app
+    /// stopped during it).
+    pub ended: Option<Timestamp>,
+    /// The dismiss reason: `break_taken` (ran to the end), `ended_early`,
+    /// `reload`, ...
+    pub outcome: Option<String>,
+    /// The break came with a routine of exercises.
+    pub exercises: bool,
+}
+
 const APP_COLUMNS: &str = "a.id, a.exe_name, a.exe_path, a.display_name, a.category_id, c.name, \
      c.kind, a.category_source, a.is_game, a.first_seen, a.last_seen";
 
@@ -443,6 +459,32 @@ impl Db {
                 reason: r.get(4)?,
                 at: r.get(5)?,
                 routine: r.get(6)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Breaks started in `[from, to)`, each with the first dismiss of the
+    /// same rule logged after it (by row order: the start's `at` is the
+    /// wall clock when it was logged, the dismiss's the engine's tick).
+    pub fn breaks(&self, from: Timestamp, to: Timestamp) -> Result<Vec<BreakRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT b.rule_id, b.at, d.at, d.reason, b.routine IS NOT NULL
+             FROM nag_events b
+             LEFT JOIN nag_events d ON d.id = (
+                 SELECT n.id FROM nag_events n
+                 WHERE n.rule_id = b.rule_id AND n.kind = 'dismiss' AND n.id > b.id
+                 ORDER BY n.id LIMIT 1)
+             WHERE b.kind = 'break_started' AND b.at >= ?1 AND b.at < ?2
+             ORDER BY b.at",
+        )?;
+        let rows = stmt.query_map(params![from, to], |r| {
+            Ok(BreakRecord {
+                rule_id: r.get(0)?,
+                started: r.get(1)?,
+                ended: r.get(2)?,
+                outcome: r.get(3)?,
+                exercises: r.get(4)?,
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)

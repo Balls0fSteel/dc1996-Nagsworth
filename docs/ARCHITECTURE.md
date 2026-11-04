@@ -142,6 +142,14 @@ a break started from the tray. `NagEvent::Raise` and `BreakStarted` carry the
 routine; `nag_events.routine` logs it; `GET /exercises` lists the catalogue
 and `[exercises]` for the Settings card, whose changes reach the engine as
 `EngineCommand::SetExercises`. The catalogue file is read at start only.
+Items tagged `habits` (water, daylight) appear only with `[exercises]
+habits`. `SkipBreak` during a running break ends it with
+`DismissReason::EndedEarly`; `GET /stats/breaks` pairs each `break_started`
+row with the next dismiss of its rule (by row id) and counts started,
+completed (`break_taken`), ended early and breaks with a routine per local
+day, for the History "Breaks" card. The overlay's step tick
+(`[exercises] step_sound`, read through the `nag_prefs` command) plays in
+the `overlay-0` window only.
 
 ## Nag windows
 

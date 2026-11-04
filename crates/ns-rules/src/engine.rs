@@ -535,7 +535,23 @@ impl Engine {
                 }
             }
             ControlCommand::SkipBreak { rule_id } => {
+                // During a started break, skipping ends it early: the rest so
+                // far still resets the rule, but the break is not counted as
+                // taken (completion tracking, docs/EXERCISES.md).
                 if let (Some(rule), Some(st)) =
+                    (self.rules.get(rule_id), self.states.get_mut(rule_id))
+                    && matches!(st.nag, NagState::InBreak { .. })
+                {
+                    st.counters.accum_ms = 0;
+                    st.counters.rest_ms = 0;
+                    st.nag = NagState::Idle;
+                    st.routine = None;
+                    out.push(NagEvent::Dismiss {
+                        rule_id: rule.id.clone(),
+                        reason: DismissReason::EndedEarly,
+                        at: now,
+                    });
+                } else if let (Some(rule), Some(st)) =
                     (self.rules.get(rule_id), self.states.get_mut(rule_id))
                     && matches!(st.nag, NagState::Active { .. } | NagState::Snoozed { .. })
                 {
@@ -785,6 +801,33 @@ mod tests {
                 ..
             }]
         ));
+    }
+
+    #[test]
+    fn started_break_can_end_early() {
+        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false, false);
+        let work = act("code.exe", CategoryKind::Work, SegmentKind::Active);
+        run(&mut e, 0, 61, &work);
+        e.command(&ControlCommand::StartBreakNow { rule_id: None }, 61_000);
+        let ev = e.command(
+            &ControlCommand::SkipBreak {
+                rule_id: "brk".into(),
+            },
+            64_000,
+        );
+        assert_eq!(
+            ev,
+            vec![NagEvent::Dismiss {
+                rule_id: "brk".into(),
+                reason: DismissReason::EndedEarly,
+                at: 64_000,
+            }]
+        );
+        let snap = e.snapshot(64_000);
+        assert_eq!(snap.rules[0].state, NagState::Idle);
+        assert_eq!(snap.rules[0].accum_ms, 0);
+        // Nothing left to run out.
+        assert!(run(&mut e, 65_000, 10, &work).is_empty());
     }
 
     #[test]

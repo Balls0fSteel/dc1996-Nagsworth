@@ -133,6 +133,8 @@ pub enum DismissReason {
     /// The user rested long enough (idle, locked, or a started break ended).
     BreakTaken,
     Skipped,
+    /// A started break was ended before its time ran out.
+    EndedEarly,
     Snoozed,
     /// The condition no longer holds (left the scope, schedule window ended).
     Resolved,

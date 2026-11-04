@@ -26,10 +26,13 @@ pub enum Tag {
     Walk,
     Cardio,
     Breathing,
+    /// Not an exercise: drinking water, daylight. Suggested only with
+    /// `[exercises] habits = true`, at most one per routine.
+    Habits,
 }
 
 impl Tag {
-    pub const ALL: [Tag; 11] = [
+    pub const ALL: [Tag; 12] = [
         Tag::Eyes,
         Tag::Neck,
         Tag::Shoulders,
@@ -41,6 +44,7 @@ impl Tag {
         Tag::Walk,
         Tag::Cardio,
         Tag::Breathing,
+        Tag::Habits,
     ];
 
     /// Neck, shoulders and upper back.
@@ -113,6 +117,11 @@ impl Exercise {
     /// Walks stretch to the planner's length; everything else is fixed.
     pub fn is_walk(&self) -> bool {
         self.region() == Tag::Walk
+    }
+
+    /// Habits (water, daylight) rather than exercises.
+    pub fn is_habit(&self) -> bool {
+        self.region() == Tag::Habits
     }
 }
 
@@ -226,13 +235,14 @@ mod tests {
     #[test]
     fn builtin_catalog_is_valid_and_complete() {
         let cat = Catalog::builtin();
-        assert_eq!(cat.exercises.len(), 28);
+        assert_eq!(cat.exercises.len(), 30);
         let free = cat
             .exercises
             .iter()
             .filter(|e| e.equipment.is_empty())
             .count();
-        assert_eq!(free, 23);
+        assert_eq!(free, 25);
+        assert_eq!(cat.exercises.iter().filter(|e| e.is_habit()).count(), 2);
         assert!(cat.get("walk").unwrap().is_walk());
         for e in &cat.exercises {
             assert!(e.enabled, "{}", e.id);
@@ -255,7 +265,7 @@ mod tests {
         let micro: Vec<_> = cat
             .exercises
             .iter()
-            .filter(|e| e.posture == Posture::Seated && e.seconds <= 30)
+            .filter(|e| e.posture == Posture::Seated && e.seconds <= 30 && !e.is_habit())
             .collect();
         assert!(micro.len() >= 6, "{}", micro.len());
     }
@@ -332,7 +342,7 @@ why = "w"
         )
         .unwrap();
         let cat = Catalog::builtin_and_file(&path).unwrap();
-        assert_eq!(cat.exercises.len(), 29);
+        assert_eq!(cat.exercises.len(), 31);
         assert_eq!(cat.get("far-focus").unwrap().name, "Window gazing");
         assert!(!cat.get("chin-tuck").unwrap().enabled);
         assert!(cat.enabled().all(|e| e.id != "chin-tuck"));

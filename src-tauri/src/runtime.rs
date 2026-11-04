@@ -36,6 +36,8 @@ pub struct Runtime {
     pub api_addr: Option<SocketAddr>,
     pub token: String,
     pub data_dir: PathBuf,
+    /// The live config, shared with the API (updated on save and reload).
+    pub config: Arc<RwLock<Config>>,
     engine_cmd: mpsc::Sender<EngineCommand>,
     sampler: JoinHandle<()>,
     segmenter: JoinHandle<()>,
@@ -290,6 +292,7 @@ impl Runtime {
             api_addr,
             token,
             data_dir,
+            config,
             engine_cmd,
             sampler,
             segmenter,

@@ -5,7 +5,8 @@
 # hides a built-in item. Fields:
 #   id        unique, used in [exercises] exclude
 #   tags      eyes, neck, shoulders, upper_back, wrists, lower_back, hips,
-#             legs, walk, cardio, breathing (the first one is the region)
+#             legs, walk, cardio, breathing, habits (the first one is the
+#             region; habits only with [exercises] habits = true)
 #   posture   seated | standing | floor
 #   seconds   one set as written in `reps`; the planner adds steps up to the
 #             break's length (a walk's seconds are its shortest length)
@@ -474,3 +475,36 @@ steps = [
 ]
 evidence = "B"
 why = "Trunk stabilization work is part of the programs that reduce low back pain in office workers (Gobbo 2019)."
+
+# ---- Habits: suggested only with [exercises] habits = true ----
+
+[[exercise]]
+id = "drink-water"
+name = "Drink a glass of water"
+tags = ["habits"]
+posture = "standing"
+seconds = 30
+reps = "1 glass"
+cue = "Get up and drink a glass of water."
+steps = [
+  "Fill a glass of water and drink it.",
+  "Refill the bottle on your desk while you are there.",
+]
+evidence = "C"
+why = "Mild dehydration (1-2% of body weight) lowered mood, vigilance and working memory in small lab studies (Ganio 2011; Armstrong 2012)."
+
+[[exercise]]
+id = "daylight"
+name = "Get some daylight"
+tags = ["habits"]
+posture = "standing"
+seconds = 60
+reps = "1 min"
+cue = "Stand at a window or step outside for a minute of daylight."
+steps = [
+  "Go to the nearest window, or step outside if you can.",
+  "Look at the sky and the distance, not the screen of your phone.",
+  "Stay for a minute.",
+]
+evidence = "C"
+why = "Office workers with more daylight at work slept longer and reported better sleep quality (Boubekri 2014, observational); bright daytime light raises alertness (Lok 2018 review)."

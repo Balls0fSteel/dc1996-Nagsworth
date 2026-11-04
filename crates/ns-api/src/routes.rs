@@ -57,6 +57,7 @@ pub fn routes(state: ApiState) -> Router<ApiState> {
         .route("/stats/daily", get(stats_daily))
         .route("/stats/kinds", get(stats_kinds))
         .route("/stats/timeline", get(stats_timeline))
+        .route("/stats/breaks", get(stats_breaks))
         .route("/stats/web", get(stats_web))
         .route("/apps", get(list_apps))
         .route("/apps/{id}", patch(update_app))
@@ -287,6 +288,62 @@ async fn stats_kinds(State(s): State<ApiState>, Query(r): Query<Range>) -> ApiRe
     let (from, to) = r.resolve(&s)?;
     let rows = s.storage.call(move |db| db.kind_totals(from, to)).await?;
     Ok(Json(json!({ "from": from, "to": to, "kinds": rows })))
+}
+
+/// Started breaks per local day and how they ended (completion tracking,
+/// docs/EXERCISES.md). Only days with a break are listed.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+struct BreakDay {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    day: Option<LocalDay>,
+    started: u32,
+    /// Ran to the end.
+    completed: u32,
+    ended_early: u32,
+    /// Started breaks that came with exercises, and how many of those ran
+    /// to the end.
+    with_exercises: u32,
+    with_exercises_completed: u32,
+}
+
+impl BreakDay {
+    fn add(&mut self, b: &ns_storage::BreakRecord) {
+        let done = b.outcome.as_deref() == Some("break_taken");
+        self.started += 1;
+        self.completed += u32::from(done);
+        self.ended_early += u32::from(b.outcome.as_deref() == Some("ended_early"));
+        self.with_exercises += u32::from(b.exercises);
+        self.with_exercises_completed += u32::from(b.exercises && done);
+    }
+}
+
+async fn stats_breaks(State(s): State<ApiState>, Query(r): Query<Range>) -> ApiResult<Value> {
+    let (from, to) = r.resolve(&s)?;
+    let day_start = s.config.read().unwrap().general.day_start;
+    let offset = s.clock.offset_s(s.clock.now());
+    // A day of margin on both sides for offset changes; filtered by day below.
+    let lo = from.prev().start_ts(offset, day_start);
+    let hi = to.next().next().start_ts(offset, day_start);
+    let rows = s.storage.call(move |db| db.breaks(lo, hi)).await?;
+    let mut days: Vec<BreakDay> = Vec::new();
+    let mut total = BreakDay::default();
+    for b in &rows {
+        let day = LocalDay::from_ts(b.started, s.clock.offset_s(b.started), day_start);
+        if day < from || day > to {
+            continue;
+        }
+        if days.last().and_then(|d| d.day) != Some(day) {
+            days.push(BreakDay {
+                day: Some(day),
+                ..BreakDay::default()
+            });
+        }
+        days.last_mut().expect("pushed").add(b);
+        total.add(b);
+    }
+    Ok(Json(
+        json!({ "from": from, "to": to, "days": days, "total": total }),
+    ))
 }
 
 #[derive(Deserialize)]

@@ -5,6 +5,7 @@
   import { onDestroy, onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
   import { clock, duration } from "./lib/format";
   import type { Routine } from "./lib/api";
   import Icon from "./lib/ui/Icon.svelte";
@@ -101,6 +102,57 @@
     stepBase = m;
   }
 
+  // ---- Step-change tick (opt-in, `[exercises] step_sound`) ----
+  // Only the first overlay window ticks, so several monitors do not echo.
+  let stepSound = false;
+  let audio: AudioContext | null = null;
+  let lastStep: string | null = null;
+  // The page's mode never changes, so reading the label once is right.
+  const ticks = getCurrentWebviewWindow().label === "overlay-0";
+
+  async function loadPrefs() {
+    if (!ticks) return;
+    try {
+      stepSound = (await invoke<{ step_sound: boolean }>("nag_prefs")).step_sound;
+    } catch {
+      stepSound = false;
+    }
+  }
+
+  function tick() {
+    try {
+      audio ??= new AudioContext();
+      // WebView autoplay rules may start the context suspended.
+      if (audio.state === "suspended") void audio.resume();
+      const t = audio.currentTime;
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.08, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(t);
+      osc.stop(t + 0.16);
+    } catch {
+      // No audio device; the tick is a nicety.
+    }
+  }
+
+  $effect(() => {
+    if (!ticks) return;
+    const first = shown[0];
+    const sv = first ? stepView(first) : null;
+    const key = first && sv ? `${first.rule_id}:${first.break_until}:${sv.index}` : null;
+    // A new step of the same break ticks; the first step of a break does not.
+    if (key && lastStep && stepSound && sv && sv.index > 0 && key !== lastStep) {
+      const [rule, until] = lastStep.split(":");
+      if (rule === first.rule_id && until === String(first.break_until)) tick();
+    }
+    lastStep = key;
+  });
+
   async function act(rule_id: string, action: Action) {
     if (busy) return;
     busy = true;
@@ -128,13 +180,18 @@
 
   onMount(async () => {
     nags = await invoke<NagView[]>("current_nags");
-    unlisten = await listen<NagView[]>("nags-changed", (e) => (nags = e.payload));
+    await loadPrefs();
+    unlisten = await listen<NagView[]>("nags-changed", (e) => {
+      nags = e.payload;
+      void loadPrefs();
+    });
     timer = setInterval(() => (now = Date.now()), 500);
   });
 
   onDestroy(() => {
     unlisten?.();
     clearInterval(timer);
+    void audio?.close();
   });
 
   $effect(() => {

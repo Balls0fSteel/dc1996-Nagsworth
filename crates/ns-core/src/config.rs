@@ -143,6 +143,10 @@ pub struct Exercises {
     pub exclude: Vec<String>,
     /// Suggest walks; squats stand in when off.
     pub walks: bool,
+    /// Also suggest habits such as drinking water (tag `habits`).
+    pub habits: bool,
+    /// A soft tick on the overlay when the routine moves to the next step.
+    pub step_sound: bool,
 }
 
 impl Default for Exercises {
@@ -152,6 +156,8 @@ impl Default for Exercises {
             equipment: Vec::new(),
             exclude: Vec::new(),
             walks: true,
+            habits: false,
+            step_sound: false,
         }
     }
 }

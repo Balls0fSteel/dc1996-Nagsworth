@@ -459,6 +459,31 @@
         A walk is the best-supported break: it scales from one to five minutes with the time you
         sat. Turn it off if there is nowhere to walk.
       </p>
+      <div class="line">
+        <Switch
+          checked={exercises.habits}
+          disabled={exercisesBusy || !exercises.enabled}
+          label="Include habits"
+          onchange={(on) =>
+            saveExercises(
+              { habits: on },
+              on ? "Breaks may suggest water or daylight" : "Breaks suggest exercises only",
+            )}
+        />
+      </div>
+      <p class="small muted explain sub">
+        Drink a glass of water, get a minute of daylight. Longer breaks get one; short desk breaks
+        keep to their exercises.
+      </p>
+      <div class="line">
+        <Switch
+          checked={exercises.step_sound}
+          disabled={exercisesBusy || !exercises.enabled}
+          label="Tick when the next exercise starts"
+          onchange={(on) =>
+            saveExercises({ step_sound: on }, on ? "The break overlay ticks between steps" : "The break overlay stays quiet")}
+        />
+      </div>
       <h3 class="sub-head">At the desk</h3>
       <div class="equipment">
         {#each EQUIPMENT as eq (eq.id)}
@@ -508,6 +533,9 @@
                 <span class="small muted num">{ex.reps}</span>
                 {#if needs.length > 0}
                   <span class="small muted">needs {needs.join(", ")}</span>
+                {/if}
+                {#if ex.tags[0] === "habits" && !exercises.habits}
+                  <span class="small muted">needs "Include habits"</span>
                 {/if}
               </div>
               {#if openExercise === ex.id}

@@ -103,6 +103,20 @@ export interface CategoryUsage {
   input_ms: number;
 }
 
+/** Started breaks and how they ended (`/stats/breaks`). */
+export interface BreakCounts {
+  started: number;
+  /** Ran to the end. */
+  completed: number;
+  ended_early: number;
+  with_exercises: number;
+  with_exercises_completed: number;
+}
+
+export interface BreakDay extends BreakCounts {
+  day: string;
+}
+
 export interface DailyUsage {
   day: string;
   category: string;
@@ -173,7 +187,8 @@ export type ExerciseTag =
   | "legs"
   | "walk"
   | "cardio"
-  | "breathing";
+  | "breathing"
+  | "habits";
 
 export type Equipment = "band" | "stairs" | "floor";
 
@@ -199,6 +214,8 @@ export interface ExercisesConfig {
   equipment: Equipment[];
   exclude: string[];
   walks: boolean;
+  habits: boolean;
+  step_sound: boolean;
 }
 
 export interface ExercisesResponse {
@@ -342,6 +359,8 @@ export const api = {
     request<{ categories: CategoryUsage[] }>("GET", `/stats/categories${range(from, to)}`).then(
       (r) => r.categories,
     ),
+  breaks: (from?: string, to?: string) =>
+    request<{ days: BreakDay[]; total: BreakCounts }>("GET", `/stats/breaks${range(from, to)}`),
   daily: (from?: string, to?: string) =>
     request<{ days: DailyUsage[] }>("GET", `/stats/daily${range(from, to)}`).then((r) => r.days),
   timeline: (day?: string) =>

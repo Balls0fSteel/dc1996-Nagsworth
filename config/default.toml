@@ -49,6 +49,10 @@ equipment = []
 exclude = []
 # Suggest walks; off if there is nowhere to walk. Squats stand in.
 walks = true
+# Also suggest habits during longer breaks (drink water, daylight).
+habits = false
+# A soft tick on the break overlay when the routine moves to the next step.
+step_sound = false
 
 # Rules. Triggers:
 #   interval     every = work time, break_for = rest that resets the timer

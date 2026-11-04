@@ -197,6 +197,23 @@ def main() -> None:
             "INSERT INTO nag_events (rule_id, kind, level, reason, at, routine) VALUES (?, ?, ?, ?, ?, ?)",
             (rule, kind, level, reason, ms(at), routine),
         )
+    # Started breaks with their end, for the History "Breaks" card: most run
+    # to the end, some are ended early. Each pair is inserted together, as
+    # the breaks query pairs a start with the next dismiss by row order.
+    for i in range(14):
+        rule = rng.choice(["rest-break", "move-break", "micro-break"])
+        length = {"rest-break": 600, "move-break": 120, "micro-break": 30}[rule]
+        start = now - timedelta(hours=rng.randint(1, days * 20))
+        early = rng.random() < 0.25
+        end = start + timedelta(seconds=rng.randint(5, length - 1) if early else length)
+        cur.execute(
+            "INSERT INTO nag_events (rule_id, kind, level, reason, at, routine) VALUES (?, 'break_started', NULL, NULL, ?, ?)",
+            (rule, ms(start), routine_json(rule)),
+        )
+        cur.execute(
+            "INSERT INTO nag_events (rule_id, kind, level, reason, at, routine) VALUES (?, 'dismiss', NULL, ?, ?, NULL)",
+            (rule, "ended_early" if early else "break_taken", ms(end)),
+        )
     con.commit()
     print(f"seeded {days} days into {path}")
 
