@@ -2,7 +2,9 @@
 
 Drafted 2026-11-04_222508_1793831108. Status: built 2026-11-05_001500_1793834100 (CHANGELOG.md);
 the open questions 2-5 stayed as proposed (no audio cues, no completion
-tracking yet, band tier off by default, no habits). Differences from the
+tracking yet, band tier off by default, no habits); revisited
+2026-11-04_231240_1793833960: audio cue (opt-in), completion tracking and a few habit items
+are to be built, band tier stays off (see "Open questions"). Differences from the
 plan are noted inline as "Built:".
 Decided 2026-11-04_223500_1793831700: open question 1, a third default rule `move-break`
 (every 30 min, 2 min, toast), is in; see "Default rules".
@@ -319,16 +321,17 @@ touched).
 1. ~~A third default rule?~~ Decided 2026-11-04_223500_1793831700: yes, see "Default
    rules" above.
 2. **Audio cues** for step changes on the overlay (the app already beeps for
-   deferred overlays). Proposal: a soft tick on step change, off by default.
+   deferred overlays). Decided 2026-11-04_231240_1793833960: a soft tick on step change behind
+   a Settings switch, off by default. Not built yet.
 3. **Completion tracking**: record whether the user let the routine run or
-   ended early, and show "breaks taken with exercises" on History. Proposal:
-   later; the `routine` column on `nag_events` plus the existing
-   `BreakTaken` / skip reasons are enough to add it afterwards.
+   ended early, and show "breaks taken with exercises" on History. Decided
+   2026-11-04_231240_1793833960: build it now (was "later"). Not built yet.
 4. **Band tier on by default?** The strength items have the best evidence
-   for pain, but need a band at the desk. Proposal: off until the user
-   ticks "I have a resistance band".
-5. **Drink water** and similar non-exercise habits: out of this brief; could
-   be a `habits` tag later.
+   for pain, but need a band at the desk. Decided 2026-11-04_231240_1793833960: off until the
+   user ticks "I have a resistance band" (as built).
+5. **Drink water** and similar non-exercise habits. Decided 2026-11-04_231240_1793833960: add
+   two or three items under a `habits` tag (drink water, look out of a
+   window), off by default. Not built yet.
 
 ## Sources
 

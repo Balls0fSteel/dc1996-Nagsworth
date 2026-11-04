@@ -402,9 +402,11 @@ catalogue file is read at start only.
    installed 0.1.0 offers the next release (docs/MANUAL_CHECKS.md).
 5. Backlog items: KDE Wayland window tracking, a structured rule editor
    (docs/BACKLOG.md).
-6. Break exercises are built; the remaining open questions in
-   docs/EXERCISES.md (audio cues, completion tracking, band tier, habits)
-   wait for a few days of use.
+6. Break exercises follow-ups decided 2026-11-04_231240_1793833960 (docs/EXERCISES.md "Open
+   questions"): completion tracking on History, an opt-in step-change tick
+   (off by default), two or three `habits` items (drink water, look out of
+   a window), off by default. Band tier stays off until ticked. The user
+   catalogue file is still read at start only (known limitation).
 
 ## Risks and open questions
 
@@ -427,6 +429,8 @@ catalogue file is read at start only.
 - **Found while building**: anti-cheat protected games refuse token queries
   and show as elevated (harmless); a hidden-desktop process can still add a
   tray icon to the user's taskbar (use `--no-tray` in tests).
-- **Open**: whether `lock` should ever be on by default; store
-  packaging identity for the extension; whether a headless service build is
-  wanted before M5.
+- **Decided 2026-11-04_231240_1793833960**: `lock` is never on in a default rule (opt-in
+  only); the extension's store identity (gecko id, listing name) is part of
+  the name check in next step 4.
+- **Open**: whether a headless service build (tracking + API, no WebView)
+  is wanted at all; M5 is done, so the old "before M5" no longer applies.

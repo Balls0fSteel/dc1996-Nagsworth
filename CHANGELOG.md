@@ -2,6 +2,17 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_231240_1793833960: Open questions reviewed
+
+- `lock` stays opt-in; no default rule will use it.
+- Break exercises: completion tracking on History is to be built now; an
+  opt-in step-change tick (off by default); a few `habits` items (drink
+  water, look out of a window), off by default; the band tier stays off
+  until ticked. Recorded in docs/EXERCISES.md and PLAN.md.
+- Extension store identity folded into the name check (PLAN.md step 4).
+- User catalogue reload on save went to docs/BACKLOG.md.
+- Still open: whether a headless service build is wanted at all.
+
 ## 2026-11-05_001500_1793834100: Break exercises (docs/EXERCISES.md)
 
 - **Default rules** (`config/default.toml`): `micro-break` every 20 min for

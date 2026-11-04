@@ -29,3 +29,5 @@
 - Flatpak package ids on Linux (cgroup lookup); KDE Wayland window tracking
   (`org_kde_plasma_window_management`).
 - Publishing to the extension stores (packages are built; listings are not).
+- User exercise catalogue (`exercises.toml` overrides) is read at app start
+  only; reload it on config save.
