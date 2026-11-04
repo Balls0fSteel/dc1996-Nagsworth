@@ -1,6 +1,8 @@
 # Browser extension 0.2: build brief
 
-Drafted 2026-11-04_133502_1793795702. Status: brief, nothing in it is built.
+Drafted 2026-11-04_133502_1793795702. Status: built 2026-11-04_140801_1793797681 (CHANGELOG.md);
+the open questions were decided as the brief proposed (controls in the
+popup, badge off by default), and Firefox's minimum went to 140.
 Meant to be handed to an implementation session (planned: Opus 5.5, medium
 effort) as its whole task. Read AGENTS.md, PLAN.md and CHANGELOG.md first;
 the repository conventions there apply.

@@ -153,10 +153,29 @@ servers. Routes: `/health`, `/pair`, `/pair/start`, `/ext/events`,
 
 ## Extension
 
-MV3, one codebase for Chrome and Firefox. `background.ts` listens to tab
-activation/updates/removal, window focus and idle changes; events go into a
-`storage.local` FIFO (cap 5000) that is flushed at 20 items and by a 30 s
-alarm, with backoff when the app is down. A 1 min heartbeat reports the
-active tab. Incognito tabs are reported only as "no tab" unless the user opts
-in. Pairing: the dashboard shows a 6-digit code (5 min, one use, burned
-after 5 wrong guesses) that the options page exchanges for the token.
+MV3, one codebase for Chrome (also Edge, Brave, Opera, Vivaldi; Chrome 102+)
+and Firefox (140+). `background.ts` listens to tab activation/updates/removal,
+window focus and idle changes; events go into a `storage.local` FIFO (cap
+5000) that is flushed at 20 items and by a 30 s alarm, with backoff (5 s
+doubling to 5 min) when the app is down. The retry deadline lives in
+`storage.session`, so a service worker Chrome stopped and restarted keeps
+waiting. A focused window whose active tab cannot be read (a private window
+the extension may not run in) is reported as `focus_lost`. A heartbeat
+reports the active tab at every worker start and then every minute.
+Incognito tabs are reported only as "no tab" unless the user opts in.
+
+`api.ts` finds the app by probing the remembered port, then 47821-47824 in
+parallel (1 s each, so "not running" within about 2 s), and reuses the last
+good port until a connection fails. Pairing: the dashboard shows a 6-digit
+code (5 min, one use, burned after 5 wrong guesses) that the options page
+exchanges for the token.
+
+The toolbar popup (`popup.ts`) is built from `GET /state` and
+`GET /stats/web` as they are: status, whether the last reported tab is being
+counted, today's web time and top hosts, rule progress, and the tray menu's
+controls (`/control/*`). An optional badge shows today's web time. The
+options page holds pairing, the badge and private-tab settings, "Forget
+everything" and the privacy text, which `scripts/build.mjs` renders from
+`extension/store/privacy.md`. Pure helpers are in `format.ts`; unit tests
+in `extension/test/` run the modules against a fake WebExtension API
+(`npm run ext:test`).

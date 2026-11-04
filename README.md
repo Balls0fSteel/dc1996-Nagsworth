@@ -80,10 +80,18 @@ tests); a build with `NAGSWORTH_NO_UPDATE_CHECK` set has no check at all.
 npm run ext:build
 ```
 
-Load `extension/dist/chrome` as an unpacked extension (Chrome, Edge, Brave)
-or `extension/dist/firefox/manifest.json` as a temporary add-on (Firefox).
-Then pair it: dashboard, Settings, "Show pairing code", and enter the code in
-the extension's popup.
+Load `extension/dist/chrome` as an unpacked extension (Chrome 102+, Edge,
+Brave, Opera, Vivaldi) or `extension/dist/firefox/manifest.json` as a
+temporary add-on (Firefox 140+). Then pair it: dashboard, Settings, "Show
+pairing code", and enter the code on the extension's settings page (the
+popup links to it).
+
+The toolbar popup shows whether the current site is being counted, today's
+web time and top sites, your rules' progress, and buttons to snooze or skip
+a nag, start a break or pause tracking. The extension talks only to the app
+on `127.0.0.1`; see [extension/store/privacy.md](extension/store/privacy.md).
+`npm run ext:test` runs its unit tests, `npm run ext:check` TypeScript and
+`web-ext lint`.
 
 ### Linux
 

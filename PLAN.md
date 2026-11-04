@@ -329,6 +329,20 @@ tests, store readiness (`web-ext lint`, AMO source zip, listing, permission
 and privacy texts) and a popup check in `tools/ext_e2e.ps1`. Out of scope:
 Safari, per-site rules, in-browser nags, store submission.
 
+## Extension 0.2 built (2026-11-04_140801_1793797681)
+
+All seven work items of docs/EXTENSION_V2.md are in (CHANGELOG.md). The
+extension's version stays 0.1.0 until the next release bumps every
+package together (the release workflow requires one version). Firefox's
+minimum is now 140 (AMO's `data_collection_permissions`). Open:
+
+- The checks the harness cannot do: docs/MANUAL_CHECKS.md "Extension, by
+  hand" (real toolbar popup and badge, controls, private-window hint, the
+  Firefox popup, a stopped Chrome worker).
+- Store screenshots (extension/store/screenshots.md) once the name is
+  checked; the listing texts are written.
+- The popup reads state once when it opens; it does not refresh while open.
+
 ## Next steps
 
 0. Run the checks in docs/MANUAL_CHECKS.md, first "Hands-on gaming time"
@@ -341,7 +355,8 @@ Safari, per-site rules, in-browser nags, store submission.
 4. Check the Nagsworth name against domains, trademarks and the extension
    stores, then get a code signing certificate and submit
    the extension to the stores (docs/RELEASING.md).
-3a. Build extension 0.2 from docs/EXTENSION_V2.md in its own session.
+3a. Extension 0.2 is built: run its manual checks, then take the store
+   screenshots (extension/store/screenshots.md) with step 4.
 4a. Tag `v0.1.0` (or bump first): the release workflow's runner test and
    the draft release with `SHA256SUMS`; publish it, then check that an
    installed 0.1.0 offers the next release (docs/MANUAL_CHECKS.md).

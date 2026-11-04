@@ -124,7 +124,42 @@ start.
 ## Extension, by hand
 
 `tools/ext_e2e.ps1` covers loading, pairing through the API, event delivery
-and heartbeats in Edge and Firefox. By hand: load the unpacked extension,
-type the code from Settings into its popup, browse with the browser in front
-for a few minutes. Pass: the Web tab lists the sites with plausible times,
-and nothing accrues while another app is in front or you are idle.
+and heartbeats in Edge and Firefox, and in Edge opens the popup as a tab and
+checks it shows the paired status and a host (screenshot in
+`%TEMP%an-ext-e2epopup-edge.png`). It cannot cover what needs a browser
+in front, the real toolbar or a person clicking. By hand
+(added 2026-11-04_140801_1793797681):
+
+1. **Pairing and counting.** Load the unpacked extension, open its settings
+   (right-click the icon > Options/Manage), type the code from the
+   dashboard's Settings, browse with the browser in front for a few
+   minutes. Pass: the Web tab lists the sites with plausible times, and
+   nothing accrues while another app is in front or you are idle.
+2. **Popup contents.** Click the toolbar icon. Pass: "Paired as <browser> on
+   port 47821, last sent … ago"; Now shows the current site with
+   "Counting" (or "Idle" after a few idle minutes); Today lists up to five
+   hosts with the same times as the dashboard's Web page; Nags shows the
+   enabled rules with progress. With the app closed the popup says "not
+   running" within about 2 s.
+3. **Popup controls.** With a rule due (a 1-minute interval rule), Snooze
+   and Skip appear and work like the toast's buttons; "Start break now"
+   shows the overlay; "Pause tracking 30 min" turns into "Resume tracking"
+   and the dashboard shows paused.
+4. **Badge.** Turn on "Show today's web time on the toolbar icon". Pass: the
+   icon shows e.g. "12m" or "1h" within a minute and when the popup opens;
+   turning it off clears it.
+5. **Private-window hint.** Tick "Also report incognito / private tabs"
+   without allowing the extension in private windows. Pass: the settings
+   page says where to allow it (`about:addons` in Firefox, the extensions
+   page in Chromium). Open a private window and focus it: the dashboard's
+   current web visit ends (`focus_lost`) instead of the last normal tab
+   continuing.
+6. **Forget everything.** Click it twice. Pass: the page says "Not paired
+   yet", the popup asks to pair, and the dashboard no longer gets events
+   from this browser.
+7. **Firefox popup.** Firefox has no DevTools hook in the harness: repeat 2
+   to 4 in Firefox, also in its dark theme.
+8. **Worker restart (Chrome).** Close the app, wait for a failed flush,
+   then stop the service worker on `chrome://extensions` (Inspect views >
+   service worker > stop). Pass: `nagsworth.log` shows no burst of requests
+   when the app restarts; queued events arrive within about 5 min.

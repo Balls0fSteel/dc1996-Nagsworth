@@ -2,6 +2,61 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_140801_1793797681: Browser extension 0.2 (docs/EXTENSION_V2.md)
+
+- **Tracking edges** (`background.ts`): a focused window with no readable
+  active tab (a private window the extension may not run in) records
+  `focus_lost`, so the previous tab stops accruing. One heartbeat and flush
+  at every worker start (`runtime.onInstalled`/`onStartup` listened to as
+  well). The flush backoff and retry deadline live in `storage.session`, so
+  a restarted MV3 worker does not probe a closed app every 30 s; the Chrome
+  manifest sets `minimum_chrome_version` 102.
+- **Port discovery** (`api.ts`): the remembered port first, then the other
+  three in parallel, 1 s timeout each: "not running" within about 2 s
+  instead of 6 s. The last good port is reused for the worker's lifetime and
+  re-probed only after a connection failure, which drops a `/health` round
+  trip per flush.
+- **Toolbar popup** (`popup.html`, `popup.ts`, `format.ts`): status, the
+  last reported site and whether it is counted (Counting / Browser not in
+  front / Idle / Tracking paused), today's web time with the top five hosts,
+  the enabled rules' progress, Snooze/Skip for a due or nagging rule, Start
+  break now, Pause 30 min / Resume. Built from `/state` and `/stats/web` as
+  they are; no host change. Optional badge with today's web time (off by
+  default). Colors from the dashboard's tokens, light and dark
+  (`common.css`). `action.default_popup` is `popup.html` now.
+- **Options page**: badge toggle, "Forget everything" (two clicks: embedded
+  options pages show no `confirm()`; clears `storage.local` and
+  `storage.session`), the hint where to allow private windows when the
+  checkbox is on but `isAllowedIncognitoAccess()` is false, and a Privacy
+  link to `privacy.html`, which the build renders from
+  `extension/store/privacy.md`.
+- **Tests**: vitest 5 with a fake WebExtension API (`extension/test/`), 39
+  cases (queue, port probing, 401, pairing, browser families, start-up
+  heartbeat, `focus_lost`, unfocused `tab_updated`, incognito scrub,
+  retry deadline across a simulated worker restart, badge, popup helpers).
+  `npm run ext:test`, also in CI after `ext:check`.
+- **Store readiness**: `ext:check` runs tsc, the build and `web-ext lint`
+  (0 errors, 0 warnings). Lint flagged the missing
+  `data_collection_permissions` that AMO requires of new add-ons; the
+  Firefox manifest declares `browsingActivity` (url and title leave the
+  extension, if only for 127.0.0.1), and because that key needs Firefox 140,
+  **`strict_min_version` went from 115 to 140** (ESR), with
+  `gecko_android` 142 for lint. `npm run ext:source` zips the sources for
+  AMO (reusing `zip()` from `package.mjs`), built in the release workflow.
+  `extension/store/`: listing, permissions, privacy and screenshot texts.
+  docs/RELEASING.md: what to paste where, Edge takes the Chrome zip.
+- **Harness**: `tools/ext_e2e.ps1 -Browser edge` also opens
+  `chrome-extension://<id>/popup.html` over DevTools
+  (`tools/ext_popup_check.mjs`, Node's global `WebSocket`), seeds one host
+  row for today (no web time accrues on the hidden desktop), checks the
+  paired status and the host, and saves `%TEMP%an-ext-e2epopup-edge.png`.
+  Edge and Firefox both PASS. The start-up heartbeat cannot be seen there:
+  the harness's copy pairs itself after the worker has started.
+- Issues: a Python heredoc through Git Bash hung on the Store `python`
+  stub (stopped, edited with the editor instead). The extension version
+  stays 0.1.0 because the release workflow requires one version for every
+  package.
+
 ## 2026-11-04_133502_1793795702: Extension 0.2 build brief
 
 - docs/EXTENSION_V2.md: a self-contained brief for the next extension

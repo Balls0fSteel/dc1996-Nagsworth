@@ -9,7 +9,11 @@
 # profiles and data under %TEMP%\an-ext-e2e. A headless browser cannot type
 # the pairing code, so the test copy of the extension pairs itself through the
 # same /pair endpoint (tools\seed_ext.py). Passes when the app has stored the
-# extension's tab events and lists its heartbeat.
+# extension's tab events and lists its heartbeat. The Edge run then opens the
+# toolbar popup as a tab over DevTools (tools\ext_popup_check.mjs), checks it
+# shows the paired status and today's hosts, and saves
+# %TEMP%\an-ext-e2e\popup-edge.png. On the hidden desktop no browser is in
+# front, so no web time accrues; one host row for today is seeded instead.
 param(
   [ValidateSet("edge", "firefox")] [string]$Browser = "edge",
   [string]$RunHidden = "L:\dev\tools\run_hidden\run_hidden.ps1",
@@ -70,6 +74,13 @@ try {
     if ($seen -gt 0 -and $clients.Count -gt 0) { $ok = $true; break }
   }
   "extensions: $($clients | ConvertTo-Json -Compress -Depth 4)"
+
+  if ($ok -and $Browser -eq "edge") {
+    $today = (Invoke-RestMethod "$base/state" -Headers $hdr).today
+    & $Python -I -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute('insert or replace into daily_web_totals (local_day, host, ms) values (?, ?, ?)', (sys.argv[2], 'e2e.example', 754000)); c.commit()" "$env:NAGSWORTH_DATA_DIR\activity.db" $today
+    & node "$PSScriptRoot\ext_popup_check.mjs" 9333 "$S\popup-edge.png" "e2e.example"
+    if ($LASTEXITCODE -ne 0) { $ok = $false }
+  }
 } finally {
   foreach ($p in $pids) { if ($p) { taskkill /T /F /PID $p 2>&1 | Out-Null } }
 }

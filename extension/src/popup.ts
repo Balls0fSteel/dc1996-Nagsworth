@@ -59,7 +59,7 @@ async function renderNow(state: AppState) {
   const pill = $("now-state");
   pill.textContent = COUNTING_TEXT[c];
   pill.className = `pill ${c === "counting" ? "ok" : c === "paused" ? "warn" : ""}`;
-  const host = hostOf(l?.url);
+  const host = l?.url?.startsWith(location.origin) ? "Nagsworth extension page" : hostOf(l?.url);
   $("now-site").textContent = host ?? (l ? "A private or unreadable tab" : "No tab reported yet");
   $("now-title").textContent = l?.title ?? "";
 }
