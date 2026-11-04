@@ -64,7 +64,7 @@ pub fn sync_nag_windows<R: Runtime>(
 
 fn open_toast<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, TOAST, WebviewUrl::App("toast.html".into()))
-        .title("activity_nagger")
+        .title("Nagsworth")
         .inner_size(TOAST_W, TOAST_H)
         .decorations(false)
         .transparent(true)

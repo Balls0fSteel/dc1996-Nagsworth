@@ -14,7 +14,7 @@ types; Tauri only hosts the tray and the webview windows.
                             v                                     |   |   +--> API /events (SSE)
                      StorageHandle (actor thread, SQLite)         |   |
                             ^                                     |   |
- extension --HTTP--> an-api --mpsc<ExtEvent>--> WebTask -- Web ---+   |
+ extension --HTTP--> ns-api --mpsc<ExtEvent>--> WebTask -- Web ---+   |
                        |        (WebSegmenter, reads activity)        |
                        +-- Control commands --------------------------+
                                                                       |
@@ -49,7 +49,7 @@ types; Tauri only hosts the tray and the webview windows.
 
 ### Linux backend
 
-`an-platform/src/linux/`: on Wayland a thread binds `ext-idle-notify-v1`
+`ns-platform/src/linux/`: on Wayland a thread binds `ext-idle-notify-v1`
 (idle) and `zwlr_foreign_toplevel_manager_v1` (focused window; the app id
 stands in for the exe, there is no pid). Without those it falls back to X11
 via x11rb: `_NET_ACTIVE_WINDOW`, `_NET_WM_NAME`, `_NET_WM_PID` to
@@ -61,7 +61,7 @@ without `.exe` so the same lists categorize both systems.
 
 ## Storage
 
-`an-storage` owns one connection on an actor thread; callers send closures
+`ns-storage` owns one connection on an actor thread; callers send closures
 (`StorageHandle::call`, `send`, `call_blocking`). WAL, `synchronous=NORMAL`,
 migrations via `rusqlite_migration`. Tables: `categories`, `apps`, `titles`,
 `segments`, `web_visits`, `ext_events_seen` (dedup), `daily_app_totals`,

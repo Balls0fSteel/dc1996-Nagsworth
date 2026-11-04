@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "activity_nagger",
-  "description": "Reports the active tab to the activity_nagger desktop app on this computer. Nothing leaves your machine.",
+  "name": "Nagsworth",
+  "description": "Reports the active tab to the Nagsworth desktop app on this computer. Nothing leaves your machine.",
   "version": "0.1.0",
   "permissions": ["tabs", "storage", "alarms", "idle"],
   "host_permissions": ["http://127.0.0.1/*"],
@@ -11,5 +11,5 @@
     "128": "icons/icon-128.png"
   },
   "options_ui": { "page": "options.html", "open_in_tab": false },
-  "action": { "default_title": "activity_nagger", "default_popup": "options.html" }
+  "action": { "default_title": "Nagsworth", "default_popup": "options.html" }
 }

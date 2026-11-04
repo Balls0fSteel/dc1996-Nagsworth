@@ -47,7 +47,7 @@ const targets = {
     ...base,
     background: { scripts: ["background.js"] },
     browser_specific_settings: {
-      gecko: { id: "activity-nagger@activitynagger.org", strict_min_version: "115.0" },
+      gecko: { id: "nagsworth@nagsworth.org", strict_min_version: "115.0" },
     },
   },
 };

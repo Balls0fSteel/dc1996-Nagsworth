@@ -9,7 +9,7 @@
 set -u
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.cargo/bin:$PATH"
-cargo build -q -p an-platform --example probe || exit 1
+cargo build -q -p ns-platform --example probe || exit 1
 P=target/debug/examples/probe
 pass=0
 fail=0

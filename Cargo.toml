@@ -7,15 +7,15 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/TheDuke/activity_nagger"
+repository = "https://github.com/TheDuke/nagsworth"
 
 [workspace.dependencies]
-an-core = { path = "crates/an-core" }
-an-platform = { path = "crates/an-platform" }
-an-tracker = { path = "crates/an-tracker" }
-an-rules = { path = "crates/an-rules" }
-an-storage = { path = "crates/an-storage" }
-an-api = { path = "crates/an-api" }
+ns-core = { path = "crates/ns-core" }
+ns-platform = { path = "crates/ns-platform" }
+ns-tracker = { path = "crates/ns-tracker" }
+ns-rules = { path = "crates/ns-rules" }
+ns-storage = { path = "crates/ns-storage" }
+ns-api = { path = "crates/ns-api" }
 
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
 tokio-stream = { version = "0.1", features = ["sync"] }

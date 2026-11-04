@@ -11,9 +11,10 @@ since (D9 onward).
 | D4 | Frontend: Svelte 5 + TypeScript + Vite, multi-page (`index`, `toast`, `overlay`, `pair`). |
 | D5 | Browser extension (MV3, Chrome + Firefox) talks to a local HTTP API (`axum`) on `127.0.0.1:47821` with a bearer token, with a short port fallback list the extension probes. |
 | D6 | No global hooks, no injection, no reading other processes' memory. Idle via `GetLastInputInfo`; Steam via `HKCU\Software\Valve\Steam\RunningAppID`; the `lock` level calls `LockWorkStation()`. |
-| D7 | Window titles stored by default (`tracking.store_titles`); `lock` level supported but commented out in shipped rules; one DB per Windows user under `%LOCALAPPDATA%\activity_nagger\`; license MIT OR Apache-2.0. |
+| D7 | Window titles stored by default (`tracking.store_titles`); `lock` level supported but commented out in shipped rules; one DB per Windows user under `%LOCALAPPDATA%\nagsworth\`; license MIT OR Apache-2.0. |
 | D8 | Tauri CLI is a project devDependency (`npm run tauri`). |
-| D9 | Event payload types (`TrackerEvent`, `NagEvent`, `ControlCommand`, ...) live in `an-core`, not in the tracker/rules crates, so the shared `Event` enum needs no dependency cycle. |
+| D9 | Product name Nagsworth (2026-11-04); crates `ns-*`, binary and data folder `nagsworth`. |
+| D9 | Event payload types (`TrackerEvent`, `NagEvent`, `ControlCommand`, ...) live in `ns-core`, not in the tracker/rules crates, so the shared `Event` enum needs no dependency cycle. |
 | D10 | Daily totals are updated incrementally on every segment extension (not only on close), so a crash loses at most one flush interval and live stats include the open segment. |
 | D11 | Apps are identified by exe name (case-insensitive), not by path, so updates that move the install folder (`app-1.2.3\`) keep one app. |
 | D12 | Rules match categories by kind (Work, Game, Web, Other); custom categories carry a kind. |

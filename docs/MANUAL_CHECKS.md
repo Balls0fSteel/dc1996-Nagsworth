@@ -1,8 +1,8 @@
 # Manual checks
 
 What automated runs on the development PC cannot cover. Each check says how
-to run it and what passing looks like. Logs are in `activity_nagger.log` in
-the data directory (`%LOCALAPPDATA%\activity_nagger\` or `AN_DATA_DIR`).
+to run it and what passing looks like. Logs are in `nagsworth.log` in
+the data directory (`%LOCALAPPDATA%\nagsworth\` or `NAGSWORTH_DATA_DIR`).
 
 ## Tray menu (Windows)
 
@@ -58,12 +58,12 @@ Build on the target machine (WebKitGTK packages as in
 - X11 session, and a wlroots Wayland compositor (Sway, Hyprland): the
   dashboard header shows the app in front; switching apps changes it within
   a few seconds; leaving the machine alone for `idle_after_s` shows "idle".
-- `cargo run -p an-platform --example probe` prints the focused app, idle
+- `cargo run -p ns-platform --example probe` prints the focused app, idle
   time and Steam state.
 - Lock the screen (`loginctl lock-session`): the timeline gets a `locked`
   segment. Suspend and resume: a `suspended` segment.
 - A `lock`-level nag locks the session.
-- Settings, "Start when you log in": `~/.config/autostart/activity_nagger.desktop`
+- Settings, "Start when you log in": `~/.config/autostart/nagsworth.desktop`
   appears and disappears with the checkbox.
 - GNOME on Wayland: only X clients are tracked and idle is unsupported
   (expected, see docs/DECISIONS.md D17).

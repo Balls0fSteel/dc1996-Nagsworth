@@ -2,6 +2,27 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_080211_1793779331: Renamed to Nagsworth
+
+- Product name chosen: Nagsworth (shortlisted and checked against crates.io,
+  npm and GitHub; no GitHub repo uses the name).
+- Crates `an-*` became `ns-*` (folders `crates/ns-*`, app crate `ns-app`).
+  Binary, data folder, log file, autostart entry, Windows Run value, NSIS
+  product (`Nagsworth_<version>_x64-setup.exe`), Tauri identifier
+  `org.nagsworth.app`, extension name, Firefox id `nagsworth@nagsworth.org`,
+  store zips, npm packages, the `/v1/health` name and the docs all follow.
+  `AN_DATA_DIR` / `AN_PYTHON` became `NAGSWORTH_DATA_DIR` / `NAGSWORTH_PYTHON`.
+  User-facing text says "Nagsworth"; identifiers use `nagsworth`. The local
+  git-ignored `.bat` scripts were updated too.
+- Not migrated: data under `%LOCALAPPDATA%\activity_nagger\` and an
+  `activity_nagger` autostart entry from earlier builds stay as they are
+  (nothing released yet). Older changelog entries keep the old name.
+- Checked: fmt, clippy `-D warnings`, 59 tests, Linux clippy for
+  `ns-platform`, `ui:check`, `ext:check`, `ext:build` (manifests carry the new
+  name and id); a Tauri debug build ran hidden, `/v1/health` answered
+  `"name":"nagsworth"` and the dashboard shows the new name. The Linux `.deb`
+  and the NSIS installer were not rebuilt.
+
 ## 2026-11-03_231552_1793744152: Local build and run scripts
 
 - Root helper scripts for Windows, git-ignored at the owner's request:

@@ -1,7 +1,7 @@
 # Clean-machine check of the NSIS installer, run on a Windows test machine
 # (over SSH is fine: nothing needs a desktop).
 #
-#   powershell -NoProfile -ExecutionPolicy Bypass -File windows_install_test.ps1 -Setup .\activity_nagger_0.1.0_x64-setup.exe
+#   powershell -NoProfile -ExecutionPolicy Bypass -File windows_install_test.ps1 -Setup .\Nagsworth_0.1.0_x64-setup.exe
 #
 # Installs silently for the current user, checks the files and the Settings >
 # Apps entry, starts the installed app hidden with a scratch data folder,
@@ -18,7 +18,7 @@ function Check([string]$name, [bool]$cond) {
 }
 function UninstallEntry {
   Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -like "activity_nagger*" }
+    Where-Object { $_.DisplayName -like "nagsworth*" }
 }
 
 $setupPath = (Resolve-Path $Setup).Path
@@ -28,13 +28,13 @@ $p = Start-Process $setupPath -ArgumentList "/S" -Wait -PassThru
 Check "silent install exits 0 ($($p.ExitCode))" ($p.ExitCode -eq 0)
 $entry = UninstallEntry
 Check "Settings > Apps entry" ($null -ne $entry)
-$dir = if ($entry.InstallLocation) { $entry.InstallLocation.Trim('"') } else { Join-Path $env:LOCALAPPDATA "activity_nagger" }
-$exe = Join-Path $dir "activity_nagger.exe"
+$dir = if ($entry.InstallLocation) { $entry.InstallLocation.Trim('"') } else { Join-Path $env:LOCALAPPDATA "nagsworth" }
+$exe = Join-Path $dir "nagsworth.exe"
 Check "installed exe at $exe" (Test-Path $exe)
 "version: $((Get-Item $exe).VersionInfo.ProductVersion), entry version: $($entry.DisplayVersion)"
 
 Remove-Item -Recurse -Force $Data -ErrorAction SilentlyContinue
-$env:AN_DATA_DIR = $Data
+$env:NAGSWORTH_DATA_DIR = $Data
 $app = Start-Process $exe -ArgumentList "--hidden", "--no-tray" -PassThru
 try {
   $base = "http://127.0.0.1:47821/v1"
@@ -47,7 +47,7 @@ try {
   Check "/state without token is 401 ($code)" ($code -eq 401)
   Check "config written to the data folder" (Test-Path "$Data\config.toml")
   Check "database created" (Test-Path "$Data\activity.db")
-  $log = Get-Content "$Data\activity_nagger.log" -Raw -ErrorAction SilentlyContinue
+  $log = Get-Content "$Data\nagsworth.log" -Raw -ErrorAction SilentlyContinue
   Check "log says started" ($log -match "started; data in")
 } finally {
   Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue

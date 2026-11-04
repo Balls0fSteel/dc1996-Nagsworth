@@ -1,6 +1,6 @@
-# activity_nagger configuration.
+# Nagsworth configuration.
 #
-# The app reads %LOCALAPPDATA%\activity_nagger\config.toml (written from this
+# The app reads %LOCALAPPDATA%\nagsworth\config.toml (written from this
 # file on first start). Every key is optional; missing keys take the values
 # shown here. Durations use humantime syntax: "30s", "10m", "1h 30m".
 

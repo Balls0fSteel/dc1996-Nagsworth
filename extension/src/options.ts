@@ -9,7 +9,7 @@ async function render() {
   const port = await findPort();
   const status = $("status");
   if (port === null) {
-    status.textContent = "The activity_nagger app is not running on this computer.";
+    status.textContent = "The Nagsworth app is not running on this computer.";
     status.className = "err";
   } else if (!s.token) {
     status.textContent = `App found on port ${port}. Not paired yet.`;

@@ -1,6 +1,6 @@
 // Zips dist/chrome and dist/firefox for the Chrome Web Store and AMO:
-//   dist/activity_nagger-chrome-<version>.zip
-//   dist/activity_nagger-firefox-<version>.zip
+//   dist/nagsworth-chrome-<version>.zip
+//   dist/nagsworth-firefox-<version>.zip
 // A small stored+deflate zip writer, so packaging needs no extra dependency.
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -83,7 +83,7 @@ export function zip(dir) {
 }
 
 for (const target of ["chrome", "firefox"]) {
-  const out = join(dist, `activity_nagger-${target}-${version}.zip`);
+  const out = join(dist, `nagsworth-${target}-${version}.zip`);
   writeFileSync(out, zip(join(dist, target)));
   console.log(`packed ${out}`);
 }

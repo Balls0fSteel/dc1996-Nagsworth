@@ -33,118 +33,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "an-api"
-version = "0.1.0"
-dependencies = [
- "an-core",
- "an-rules",
- "an-storage",
- "an-tracker",
- "axum",
- "base64 0.22.1",
- "http-body-util",
- "rand",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "tokio-stream",
- "tower",
- "tower-http",
- "tracing",
-]
-
-[[package]]
-name = "an-app"
-version = "0.1.0"
-dependencies = [
- "an-api",
- "an-core",
- "an-platform",
- "an-rules",
- "an-storage",
- "an-tracker",
- "anyhow",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-single-instance",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "an-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "time",
- "tokio",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
-]
-
-[[package]]
-name = "an-platform"
-version = "0.1.0"
-dependencies = [
- "an-core",
- "thiserror 2.0.21",
- "tracing",
- "wayland-client",
- "wayland-protocols",
- "wayland-protocols-wlr",
- "windows",
- "x11rb",
- "zbus",
-]
-
-[[package]]
-name = "an-rules"
-version = "0.1.0"
-dependencies = [
- "an-core",
- "humantime",
- "humantime-serde",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
-]
-
-[[package]]
-name = "an-storage"
-version = "0.1.0"
-dependencies = [
- "an-core",
- "rusqlite",
- "rusqlite_migration",
- "serde",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "an-tracker"
-version = "0.1.0"
-dependencies = [
- "an-core",
- "an-platform",
- "an-storage",
- "serde",
- "tokio",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
-]
-
-[[package]]
 name = "android_system_properties"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2350,6 +2238,118 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
+
+[[package]]
+name = "ns-api"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "http-body-util",
+ "ns-core",
+ "ns-rules",
+ "ns-storage",
+ "ns-tracker",
+ "rand",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-stream",
+ "tower",
+ "tower-http",
+ "tracing",
+]
+
+[[package]]
+name = "ns-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ns-api",
+ "ns-core",
+ "ns-platform",
+ "ns-rules",
+ "ns-storage",
+ "ns-tracker",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-single-instance",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "ns-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "time",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+]
+
+[[package]]
+name = "ns-platform"
+version = "0.1.0"
+dependencies = [
+ "ns-core",
+ "thiserror 2.0.21",
+ "tracing",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
+ "windows",
+ "x11rb",
+ "zbus",
+]
+
+[[package]]
+name = "ns-rules"
+version = "0.1.0"
+dependencies = [
+ "humantime",
+ "humantime-serde",
+ "ns-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+]
+
+[[package]]
+name = "ns-storage"
+version = "0.1.0"
+dependencies = [
+ "ns-core",
+ "rusqlite",
+ "rusqlite_migration",
+ "serde",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "ns-tracker"
+version = "0.1.0"
+dependencies = [
+ "ns-core",
+ "ns-platform",
+ "ns-storage",
+ "serde",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+]
 
 [[package]]
 name = "nu-ansi-term"

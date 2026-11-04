@@ -10,7 +10,7 @@ fn main() {
         std::fs::create_dir_all(dist).expect("create ui/dist");
         std::fs::write(
             dist.join("index.html"),
-            "<!doctype html><title>activity_nagger</title><p>Dashboard not built. Run <code>npm run ui:build</code>.</p>",
+            "<!doctype html><title>Nagsworth</title><p>Dashboard not built. Run <code>npm run ui:build</code>.</p>",
         )
         .expect("write placeholder");
     }

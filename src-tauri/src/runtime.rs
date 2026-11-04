@@ -7,18 +7,18 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use an_api::{ApiState, Auth, ConfigStore};
-use an_core::config::{self, Config};
-use an_core::{
+use anyhow::Context;
+use ns_api::{ApiState, Auth, ConfigStore};
+use ns_core::config::{self, Config};
+use ns_core::{
     Activity, Clock, ControlCommand, Event, EventBus, LocalDay, NagEvent, NagLevel, SystemClock,
 };
-use an_platform::Platform;
-use an_rules::{Engine, EngineCommand, EngineSnapshot, EngineTask, RuleSet};
-use an_storage::StorageHandle;
-use an_tracker::segmenter::SegmenterTask;
-use an_tracker::web::WebTask;
-use an_tracker::{Categorizer, Sampler, Segmenter, SegmenterConfig, WebSegmenter};
-use anyhow::Context;
+use ns_platform::Platform;
+use ns_rules::{Engine, EngineCommand, EngineSnapshot, EngineTask, RuleSet};
+use ns_storage::StorageHandle;
+use ns_tracker::segmenter::SegmenterTask;
+use ns_tracker::web::WebTask;
+use ns_tracker::{Categorizer, Sampler, Segmenter, SegmenterConfig, WebSegmenter};
 use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
@@ -96,12 +96,12 @@ impl Runtime {
         };
         let cfg = loaded.config;
         let storage = StorageHandle::open(&data_dir.join("activity.db"))?;
-        let token = match storage.call_blocking(|db| db.kv_get(an_api::auth::TOKEN_KEY))? {
+        let token = match storage.call_blocking(|db| db.kv_get(ns_api::auth::TOKEN_KEY))? {
             Some(t) => t,
             None => {
-                let t = an_api::generate_token();
+                let t = ns_api::generate_token();
                 let t2 = t.clone();
-                storage.call_blocking(move |db| db.kv_set(an_api::auth::TOKEN_KEY, &t2))?;
+                storage.call_blocking(move |db| db.kv_set(ns_api::auth::TOKEN_KEY, &t2))?;
                 t
             }
         };
@@ -134,7 +134,7 @@ impl Runtime {
 
         // Built-in game list plus the user's known_games.toml.
         let known = data_dir.join("known_games.toml");
-        let categorizer = match an_tracker::gaming::KnownExeList::builtin_and_file(&known) {
+        let categorizer = match ns_tracker::gaming::KnownExeList::builtin_and_file(&known) {
             Ok(list) => Categorizer::new(list),
             Err(e) => {
                 tracing::warn!("ignoring known games file: {e}");
@@ -227,7 +227,7 @@ impl Runtime {
             ext_clients: Arc::default(),
             backup_dir: data_dir.join("backups"),
         };
-        let api_addr = match rt.block_on(an_api::serve(api_state, &cfg.api.bind, cfg.api.port)) {
+        let api_addr = match rt.block_on(ns_api::serve(api_state, &cfg.api.bind, cfg.api.port)) {
             Ok(addr) => Some(addr),
             Err(e) => {
                 tracing::error!("local API unavailable: {e}");
@@ -380,8 +380,8 @@ async fn retention(storage: StorageHandle, clock: Arc<dyn Clock>, config: Arc<Rw
 
 #[cfg(test)]
 mod tests {
-    use an_platform::MockPlatform;
-    use an_platform::mock::{sample, window};
+    use ns_platform::MockPlatform;
+    use ns_platform::mock::{sample, window};
 
     use super::*;
 

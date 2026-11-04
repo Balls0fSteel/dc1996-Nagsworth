@@ -6,7 +6,7 @@
 npm run tauri build
 ```
 
-Windows produces `target/release/bundle/nsis/activity_nagger_<version>_x64-setup.exe`
+Windows produces `target/release/bundle/nsis/Nagsworth_<version>_x64-setup.exe`
 (per-user install, no admin rights). On the first run the Tauri bundler
 downloads its pinned NSIS toolset from Tauri's GitHub releases and checks
 the hashes. On Linux, `src-tauri/tauri.linux.conf.json` switches the targets to
@@ -17,8 +17,8 @@ the hashes. On Linux, `src-tauri/tauri.linux.conf.json` switches the targets to
 npm run ext:package
 ```
 
-writes `extension/dist/activity_nagger-chrome-<version>.zip` (Chrome Web
-Store) and `activity_nagger-firefox-<version>.zip` (addons.mozilla.org).
+writes `extension/dist/nagsworth-chrome-<version>.zip` (Chrome Web
+Store) and `nagsworth-firefox-<version>.zip` (addons.mozilla.org).
 
 ## Versions
 
@@ -57,6 +57,6 @@ import the certificate and write the same file by hand:
 - Chrome Web Store: upload the chrome zip. The listing needs a privacy note:
   the extension sends tab URLs and titles only to `127.0.0.1`.
 - AMO: upload the firefox zip; the add-on id is
-  `activity-nagger@activitynagger.org` (`scripts/build.mjs`). Source code
+  `nagsworth@nagsworth.org` (`scripts/build.mjs`). Source code
   upload is required because the scripts are bundled: attach a zip of
   `extension/` without `node_modules` and `dist`.

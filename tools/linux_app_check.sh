@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the built app (target/debug/activity_nagger, from
+# Runs the built app (target/debug/nagsworth, from
 # `npm run tauri -- build --debug`) under Xvfb + xfwm4 with an xterm in front
 # and checks it end to end: the API, tracking of the X11 window, a break
 # overlay window, and a screenshot of the screen.
@@ -7,7 +7,7 @@
 #   tools/linux_app_check.sh [screenshot.png]
 set -u
 cd "$(dirname "$0")/.."
-shot="${1:-/tmp/an-app.png}"
+shot="${1:-/tmp/ns-app.png}"
 data=$(mktemp -d)
 pass=0
 fail=0
@@ -27,7 +27,7 @@ pids+=("$DBUS_SESSION_BUS_PID")
 xfwm4 --compositor=off >/dev/null 2>&1 & pids+=($!)
 sleep 1
 
-AN_DATA_DIR="$data" target/debug/activity_nagger --hidden >"$data/stdout.log" 2>&1 & pids+=($!)
+NAGSWORTH_DATA_DIR="$data" target/debug/nagsworth --hidden >"$data/stdout.log" 2>&1 & pids+=($!)
 base=http://127.0.0.1:47821/v1
 for _ in $(seq 1 60); do curl -sf "$base/health" >/dev/null && break; sleep 0.5; done
 check "app answers /health" 'curl -sf "$base/health" | grep -q "\"ok\":true"'
@@ -58,6 +58,6 @@ check "screenshot written ($shot)" '[ -s "$shot" ]'
 nags=$(curl -sf "${auth[@]}" "$base/nags")
 check "nag log has break_started" 'grep -q "break_started" <<<"$nags"'
 
-grep -iE "tray|warn|error" "$data/activity_nagger.log" | tail -5
+grep -iE "tray|warn|error" "$data/nagsworth.log" | tail -5
 echo "$pass passed, $fail failed"
 exit "$fail"

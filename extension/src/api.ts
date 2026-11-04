@@ -11,7 +11,7 @@ async function healthy(port: number): Promise<boolean> {
   try {
     const res = await fetch(`${base(port)}/health`, { signal: AbortSignal.timeout(1500) });
     const body = await res.json();
-    return res.ok && body?.name === "activity_nagger";
+    return res.ok && body?.name === "nagsworth";
   } catch {
     return false;
   }
@@ -36,7 +36,7 @@ export async function post<T>(path: string, body: unknown): Promise<T> {
   const { token } = await settings();
   if (!token) throw new NotPaired("not paired");
   const port = await findPort();
-  if (port === null) throw new Error("activity_nagger is not running");
+  if (port === null) throw new Error("Nagsworth is not running");
   const res = await fetch(base(port) + path, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -53,7 +53,7 @@ export async function post<T>(path: string, body: unknown): Promise<T> {
 /** Exchanges a 6-digit code shown by the app for the API token. */
 export async function pair(code: string): Promise<void> {
   const port = await findPort();
-  if (port === null) throw new Error("activity_nagger is not running on this computer");
+  if (port === null) throw new Error("Nagsworth is not running on this computer");
   const res = await fetch(`${base(port)}/pair`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

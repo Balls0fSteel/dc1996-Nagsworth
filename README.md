@@ -1,8 +1,9 @@
-# activity_nagger
+# Nagsworth
 
-An open source activity tracker and break nagger for your own PC: Windows,
-plus a Linux backend for X11 and wlroots Wayland compositors. Working name;
-a real one is still to be chosen.
+Nagsworth is an open source activity tracker and break nagger for your own PC:
+Windows, plus a Linux backend for X11 and wlroots Wayland compositors. Think of
+a polite butler who keeps a note of your hours and clears his throat when it is
+time for a break.
 
 - **Tracks** which app is in front and for how long (with idle, lock and sleep
   detection), how much of it is gaming (Steam, launcher folders, known games,
@@ -14,7 +15,7 @@ a real one is still to be chosen.
   fullscreen overlay on every monitor to (optionally) locking the workstation.
 
 Everything stays on your machine: one SQLite file under
-`%LOCALAPPDATA%\activity_nagger\` (`~/.local/share/activity_nagger/` on
+`%LOCALAPPDATA%\nagsworth\` (`~/.local/share/nagsworth/` on
 Linux), and a local API bound to `127.0.0.1`. The dashboard exports CSV/JSON
 and writes database backups (Settings). No global hooks, no injection, no reading other processes' memory.
 
@@ -50,8 +51,8 @@ The app starts in the tray; left-click the icon for the dashboard. Closing
 the dashboard keeps it running; use the tray's Quit.
 
 Command-line flags: `--hidden` / `--autostart` start without showing the
-dashboard; `--no-tray` skips the tray icon (tests). `AN_DATA_DIR` overrides the
-data directory; `RUST_LOG` the log level (logs go to `activity_nagger.log` in
+dashboard; `--no-tray` skips the tray icon (tests). `NAGSWORTH_DATA_DIR` overrides the
+data directory; `RUST_LOG` the log level (logs go to `nagsworth.log` in
 the data directory).
 
 ### Browser extension
@@ -76,7 +77,7 @@ packages listed in `.github/workflows/ci.yml`.
 
 ## Configuration
 
-The config file is `%LOCALAPPDATA%\activity_nagger\config.toml`, written from
+The config file is `%LOCALAPPDATA%\nagsworth\config.toml`, written from
 [config/default.toml](config/default.toml) on first start, and editable in the
 dashboard's Rules tab (validated and applied without a restart). Example rule:
 
@@ -112,7 +113,7 @@ npm run ui:check
 npm run ext:check
 ```
 
-`cargo run -p an-platform --example probe` prints what the platform layer sees
+`cargo run -p ns-platform --example probe` prints what the platform layer sees
 (foreground app, idle time, Steam state) once per second.
 
 ## Layout

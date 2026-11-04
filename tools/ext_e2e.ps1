@@ -13,24 +13,24 @@
 param(
   [ValidateSet("edge", "firefox")] [string]$Browser = "edge",
   [string]$RunHidden = "L:\dev\tools\run_hidden\run_hidden.ps1",
-  [string]$Python = $(if ($env:AN_PYTHON) { $env:AN_PYTHON } else { "python" })
+  [string]$Python = $(if ($env:NAGSWORTH_PYTHON) { $env:NAGSWORTH_PYTHON } else { "python" })
 )
 $ErrorActionPreference = "Stop"
 $Repo = Split-Path $PSScriptRoot
 $S = Join-Path $env:TEMP "an-ext-e2e"
 New-Item -ItemType Directory -Force "$S\pages" | Out-Null
 foreach ($n in "a", "b", "c") { Set-Content "$S\pages\$n.html" "<!doctype html><title>Page $n</title><h1>Page $n</h1>" }
-$env:AN_DATA_DIR = "$S\data-$Browser"
-Remove-Item -Recurse -Force $env:AN_DATA_DIR -ErrorAction SilentlyContinue
+$env:NAGSWORTH_DATA_DIR = "$S\data-$Browser"
+Remove-Item -Recurse -Force $env:NAGSWORTH_DATA_DIR -ErrorAction SilentlyContinue
 
 function Query([string]$sql) {
-  & $Python -I -c "import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(sys.argv[2]).fetchone())" "$env:AN_DATA_DIR\activity.db" $sql
+  & $Python -I -c "import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(sys.argv[2]).fetchone())" "$env:NAGSWORTH_DATA_DIR\activity.db" $sql
 }
 
 $pids = @()
 $ok = $false
 try {
-  $pids += & $RunHidden -NoWait "$Repo\target\debug\activity_nagger.exe" --no-tray
+  $pids += & $RunHidden -NoWait "$Repo\target\debug\nagsworth.exe" --no-tray
   $base = "http://127.0.0.1:47821/v1"
   for ($i = 0; $i -lt 60; $i++) { try { Invoke-RestMethod "$base/health" | Out-Null; break } catch { Start-Sleep -Milliseconds 500 } }
   $token = (Query "select value from settings where key='api.token'").Trim("()',")

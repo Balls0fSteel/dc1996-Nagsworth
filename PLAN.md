@@ -1,10 +1,11 @@
-# Activity tracker + nagger: plan
+# Nagsworth: plan
 
-Last updated: 2026-11-03_230747_1793743667
+Last updated: 2026-11-04_080211_1793779331
 
-Working name: `activity_nagger` (crate prefix `an-`). A real name is still to be
-chosen; the working name is used everywhere so a later rename is a
-search-and-replace.
+Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
+of your hours and clears his throat when a break is due. Identifiers use
+`nagsworth` (binary, data folder, npm packages); crates use the prefix `ns-`.
+The repository folder on this PC is still `L:\dev\foss\activity_nagger`.
 
 ## Vision
 
@@ -30,8 +31,9 @@ Two apps in one, open source, for a single user's PC:
 | D4 | Frontend: Svelte 5 + TypeScript + Vite, multi-page (`index.html` dashboard, `toast.html`, `overlay.html`, `pair.html`). |
 | D5 | Browser extension (Manifest V3, Chrome + Firefox) talks to a local HTTP API (`axum`) on `127.0.0.1:47821` with a bearer token; the same API serves the dashboard and future clients. Fixed port with a short fallback list the extension probes (extensions cannot read a discovery file). |
 | D6 | No global hooks, no injection, no reading other processes' memory (antivirus-friendly). Idle via `GetLastInputInfo`; Steam detection via `HKCU\Software\Valve\Steam\RunningAppID`. The `lock` escalation level calls `LockWorkStation()` rather than trying to build an inescapable overlay. |
-| D7 | Defaults on open points: window titles are stored even when the extension is paired (`tracking.store_titles` toggle); `lock` level is supported but commented out in shipped rules; one DB per Windows user under `%LOCALAPPDATA%\activity_nagger\`; license MIT OR Apache-2.0. |
+| D7 | Defaults on open points: window titles are stored even when the extension is paired (`tracking.store_titles` toggle); `lock` level is supported but commented out in shipped rules; one DB per Windows user under `%LOCALAPPDATA%\nagsworth\`; license MIT OR Apache-2.0. |
 | D8 | Tauri CLI is a project devDependency (`@tauri-apps/cli` in root `package.json`, run via `npm run tauri`), not a global install. |
+| D9 | Product name Nagsworth (2026-11-04): crates `ns-*`, binary and data folder `nagsworth`, Tauri identifier `org.nagsworth.app`, Firefox id `nagsworth@nagsworth.org`, env vars `NAGSWORTH_DATA_DIR` / `NAGSWORTH_PYTHON`. Checked free on crates.io, npm and GitHub; domains, trademarks and the extension stores not checked. |
 
 Environment (2026-10-31): cargo/rustc 1.90, node 25.2, npm, WebView2 156
 present. Sibling `foss/libretorrent` is its own nested git repo, so this
@@ -41,7 +43,7 @@ dev-folder notes).
 ## Repository layout
 
 ```
-activity_nagger/
+nagsworth/
   Cargo.toml                 # [workspace] members = ["crates/*", "src-tauri"], resolver 2, [workspace.dependencies]
   rust-toolchain.toml  rustfmt.toml  .editorconfig  .gitignore  LICENSE-MIT  LICENSE-APACHE
   package.json               # devDeps: @tauri-apps/cli; scripts: tauri, ui:dev, ui:build, ext:build
@@ -49,19 +51,19 @@ activity_nagger/
   docs/ARCHITECTURE.md  docs/DECISIONS.md  docs/BACKLOG.md
   config/default.toml        # shipped defaults + example rules, include_str!'d as fallback
   crates/
-    an-core/      domain types, Event + EventBus, Clock, Config
-    an-platform/  Platform trait; windows.rs, mock.rs, linux.rs (stub)
-    an-tracker/   Sampler, Segmenter, Categorizer, gaming/, WebSegmenter
-    an-rules/     RuleSet (TOML), Engine, NagState machine, ControlCommand
-    an-storage/   Db, migrations/001_init.sql, storage actor, query modules
-    an-api/       axum router, auth, pairing, routes
-  src-tauri/                 # crate an-app: main.rs, app.rs, tray.rs, windows.rs, commands.rs, runtime.rs, nag_bridge.rs
+    ns-core/      domain types, Event + EventBus, Clock, Config
+    ns-platform/  Platform trait; windows.rs, mock.rs, linux.rs (stub)
+    ns-tracker/   Sampler, Segmenter, Categorizer, gaming/, WebSegmenter
+    ns-rules/     RuleSet (TOML), Engine, NagState machine, ControlCommand
+    ns-storage/   Db, migrations/001_init.sql, storage actor, query modules
+    ns-api/       axum router, auth, pairing, routes
+  src-tauri/                 # crate ns-app: main.rs, app.rs, tray.rs, windows.rs, commands.rs, runtime.rs, nag_bridge.rs
   ui/                        # Svelte 5 + Vite + TS → ui/dist (tauri frontendDist)
   extension/                 # MV3 WebExtension, TS + Vite → dist/chrome, dist/firefox
 ```
 
-Dependency direction: `an-core` ← `an-platform`, `an-storage` ← `an-tracker`,
-`an-rules` ← `an-api` ← `an-app`.
+Dependency direction: `ns-core` ← `ns-platform`, `ns-storage` ← `ns-tracker`,
+`ns-rules` ← `ns-api` ← `ns-app`.
 
 Shared `[workspace.dependencies]`: tokio, serde, serde_json, toml, thiserror,
 anyhow, tracing, tracing-subscriber, time, humantime-serde, rusqlite (bundled),
@@ -73,19 +75,19 @@ tauri-plugin-autostart, tauri-plugin-opener, tauri-build.
 
 ## Crate contracts
 
-- **an-core** (no I/O beyond config load): `ProcessInfo{pid,exe_name,exe_path,is_elevated,package_id}`,
+- **ns-core** (no I/O beyond config load): `ProcessInfo{pid,exe_name,exe_path,is_elevated,package_id}`,
   `WindowInfo{hwnd,title,process,is_fullscreen,monitor}`, `Sample{ts,fg,idle,session}`,
   `SessionState{Active,Locked,Suspended}`, `Segment{app_id,title_id,start,end,kind}`,
   `SegmentKind{Active,Idle,Locked,Suspended,Paused}`, `CategoryKind{Work,Game,Web,Other}`,
   `Event{Tracker,Web,Nag,Session,Control}`, `EventBus` (tokio broadcast wrapper),
   `Clock` trait + `SystemClock`/`MockClock`, `config::{Config,load,data_dir}`,
   `Timestamp` (unix ms), `LocalDay` (computed with `day_start`, default 04:00).
-- **an-platform**: `trait Platform: Send + Sync { foreground_window, idle_time,
+- **ns-platform**: `trait Platform: Send + Sync { foreground_window, idle_time,
   process_info, session_events, autostart, set_autostart, lock_workstation, caps }`,
   `create_platform()`, `MockPlatform::scripted(Vec<Sample>)`. `WindowsPlatform`
   owns a message-only window thread for `WTSRegisterSessionNotification` and
   `WM_POWERBROADCAST`.
-- **an-tracker**: `Sampler::spawn(platform, interval, tx)` (1 s poll; raw samples
+- **ns-tracker**: `Sampler::spawn(platform, interval, tx)` (1 s poll; raw samples
   never stored); `Segmenter::run(rx)` opens/closes segments on (app, title, kind)
   change, merges flaps shorter than `min_segment_ms` (2000), flushes the open
   segment every 10 s, inserts a `suspended` gap when the clock jumps > 5 s;
@@ -93,7 +95,7 @@ tauri-plugin-autostart, tauri-plugin-opener, tauri-build.
   `Categorizer` (user override > known games > launcher heuristic > default);
   `gaming::{SteamDetector, LauncherPathDetector, KnownExeList}`; `WebSegmenter`
   accrues web time only while a browser is foreground and not idle.
-- **an-rules** (pure logic + `Clock`, unit-testable): `Rule{id,name,enabled,scope,trigger,idle_policy,escalation,snooze}`,
+- **ns-rules** (pure logic + `Clock`, unit-testable): `Rule{id,name,enabled,scope,trigger,idle_policy,escalation,snooze}`,
   `Scope{Any,Category,App}`, `Trigger{Interval{every,break_for}, DailyTotal{limit,renag_every},
   Continuous{limit,reset_after}, Schedule{windows}}`, `IdlePolicy{Pause,Ignore}`
   (reading mode is a global override to `Ignore`; `Game` scope defaults to `Ignore`
@@ -102,7 +104,7 @@ tauri-plugin-autostart, tauri-plugin-opener, tauri-build.
   `NagEvent{Raise,Escalate,Dismiss}`, `ControlCommand{Snooze,SkipBreak,StartBreakNow,
   PauseTracking,ResumeTracking,SetReadingMode,Reload}`, `Engine::run()`,
   `watch<EngineSnapshot>`. Lock/idle time counts as rest (Workrave semantics).
-- **an-storage** (`001_init.sql`): `categories`, `apps` (exe_name, exe_path,
+- **ns-storage** (`001_init.sql`): `categories`, `apps` (exe_name, exe_path,
   package_id, category_id, category_source auto|user, is_game, first/last_seen),
   `titles` (dedup), `segments` (app_id, title_id, kind, start_ts, end_ts, local_day;
   indexes on (local_day, app_id) and start_ts), `web_visits` (host, url, title,
@@ -112,14 +114,14 @@ tauri-plugin-autostart, tauri-plugin-opener, tauri-build.
   Timestamps unix ms UTC. WAL, `synchronous=NORMAL`. Size: 1-3k segments/day,
   roughly 40-110 MB/year worst case; `retention_days` (365) prunes segments while
   totals stay. Privacy: `tracking.store_titles = full|none`, `web.store_url = host|full`.
-- **an-api** (`http://127.0.0.1:47821/v1`, bearer token except `/health` and `/pair`;
+- **ns-api** (`http://127.0.0.1:47821/v1`, bearer token except `/health` and `/pair`;
   CORS for `chrome-extension://`, `moz-extension://`, `tauri://localhost`):
   `GET /health`; `POST /pair {code}` → `{token}`; `POST /ext/events` (batched tab
   events, idempotent by client_id+ts+tab_id); `POST /ext/heartbeat`; `GET /state`;
   `GET /stats/{apps,categories,daily,timeline,web}`; `GET /apps`, `PATCH /apps/{id}`;
   `GET/POST /categories`; `GET/PUT /rules` (TOML, validated, hot reload);
   `GET /nags`; `GET /events` (SSE); `POST /control/{snooze,skip,break/start,pause,resume,reading-mode}`.
-- **an-app / runtime wiring**: platform thread → broadcast `SessionEvent`;
+- **ns-app / runtime wiring**: platform thread → broadcast `SessionEvent`;
   Sampler → mpsc `Sample` → Segmenter → `StorageHandle` (mpsc + oneshot) and
   `EventBus`; Engine subscribes to the bus + 1 s tick + mpsc `ControlCommand`,
   publishes `NagEvent` → `nag_bridge.rs` → toast/overlay windows (one overlay
@@ -190,7 +192,7 @@ Verified here:
 - `cargo test --workspace` (59 tests), `cargo clippy --workspace
   --all-targets -D warnings`, `cargo fmt --check`, `npm run ui:check`,
   `npm run ext:check`: clean. Linux backend: `cargo +1.90.0 clippy -p
-  an-platform --target x86_64-unknown-linux-gnu -D warnings` clean.
+  ns-platform --target x86_64-unknown-linux-gnu -D warnings` clean.
 - `npm run tauri dev` (run hidden): Vite dev server, app build, log line
   `tray icon created`, dashboard rendered from the dev server with live rule
   progress.
@@ -199,7 +201,7 @@ Verified here:
   overlays on both monitors (1936x1089 and 3856x2169 physical, so mixed-DPI
   placement works), backup writes a database copy, CSV export downloads.
 - `npm run tauri build` produced the NSIS installer
-  (`activity_nagger_0.1.0_x64-setup.exe`, 3.6 MiB). Not installed.
+  (`nagsworth_0.1.0_x64-setup.exe`, 3.6 MiB). Not installed.
 - `npm run ext:build` / `ext:package`: both manifests and both store zips
   (zip integrity checked).
 - Linux on the Xubuntu 26.04 VM (2026-11-03_230747_1793743667): workspace clippy
@@ -270,7 +272,8 @@ Milestone coverage:
    `min_segment_ms`, `idle_after_s` and the rules.
 2. Push to GitHub and let CI run; fix anything the Linux job finds.
 3. Try it in a real Linux desktop session (tray in a panel, KDE, GNOME).
-4. Choose the product name, then get a code signing certificate and submit
+4. Check the Nagsworth name against domains, trademarks and the extension
+   stores, then get a code signing certificate and submit
    the extension to the stores (docs/RELEASING.md).
 5. Backlog items: week/month charts, per-rule toggle, KDE Wayland window
    tracking (docs/BACKLOG.md).
@@ -294,6 +297,6 @@ Milestone coverage:
 - **Found while building**: anti-cheat protected games refuse token queries
   and show as elevated (harmless); a hidden-desktop process can still add a
   tray icon to the user's taskbar (use `--no-tray` in tests).
-- **Open**: product name; whether `lock` should ever be on by default; store
+- **Open**: whether `lock` should ever be on by default; store
   packaging identity for the extension; whether a headless service build is
   wanted before M5.

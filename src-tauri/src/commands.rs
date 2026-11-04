@@ -1,7 +1,7 @@
 //! Tauri commands for the dashboard and nag windows. Everything else goes
 //! through the local HTTP API.
 
-use an_core::ControlCommand;
+use ns_core::ControlCommand;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 

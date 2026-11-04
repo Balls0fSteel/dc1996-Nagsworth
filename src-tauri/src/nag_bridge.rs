@@ -9,9 +9,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use an_core::{Event, EventBus, NagEvent, NagLevel, Timestamp};
-use an_platform::Platform;
-use an_rules::EngineSnapshot;
+use ns_core::{Event, EventBus, NagEvent, NagLevel, Timestamp};
+use ns_platform::Platform;
+use ns_rules::EngineSnapshot;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{broadcast, watch};
@@ -204,7 +204,7 @@ fn plan_windows(toast: bool, overlay: bool, exclusive: impl FnOnce() -> bool) ->
 
 #[cfg(test)]
 mod tests {
-    use an_core::DismissReason;
+    use ns_core::DismissReason;
 
     use super::*;
 

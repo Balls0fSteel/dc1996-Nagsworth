@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use an_core::{ControlCommand, SegmentKind};
+use ns_core::{ControlCommand, SegmentKind};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
@@ -41,7 +41,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .ok_or_else(|| tauri::Error::AssetNotFound("tray icon".into()))?;
     let tray = TrayIconBuilder::with_id("main")
         .icon(icon)
-        .tooltip("activity_nagger")
+        .tooltip("Nagsworth")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
@@ -107,17 +107,17 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 };
                 let tip = match (&activity.kind, &activity.app) {
                     _ if !due.is_empty() => format!(
-                        "activity_nagger: {} (waiting for fullscreen to end)",
+                        "Nagsworth: {} (waiting for fullscreen to end)",
                         due.iter()
                             .map(|n| n.rule_name.as_str())
                             .collect::<Vec<_>>()
                             .join(", ")
                     ),
                     (Some(SegmentKind::Active), Some(a)) => {
-                        format!("activity_nagger: {}", a.exe_name)
+                        format!("Nagsworth: {}", a.exe_name)
                     }
-                    (Some(k), _) => format!("activity_nagger: {k}"),
-                    _ => "activity_nagger".to_string(),
+                    (Some(k), _) => format!("Nagsworth: {k}"),
+                    _ => "Nagsworth".to_string(),
                 };
                 if last.0 != tip {
                     let _ = tray.set_tooltip(Some(&tip));

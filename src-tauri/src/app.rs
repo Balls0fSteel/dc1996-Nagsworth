@@ -3,9 +3,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use an_core::{Activity, ControlCommand, Event, EventBus};
-use an_platform::Platform;
-use an_rules::EngineSnapshot;
+use ns_core::{Activity, ControlCommand, Event, EventBus};
+use ns_platform::Platform;
+use ns_rules::EngineSnapshot;
 use tauri::{Manager, RunEvent, WindowEvent};
 use tokio::sync::watch;
 use tracing_subscriber::EnvFilter;
@@ -39,7 +39,7 @@ fn init_logging(data_dir: &std::path::Path) {
     let file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(data_dir.join("activity_nagger.log"));
+        .open(data_dir.join("nagsworth.log"));
     let builder = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_ansi(false);
@@ -52,19 +52,19 @@ fn init_logging(data_dir: &std::path::Path) {
 }
 
 pub fn run() {
-    let data_dir = an_core::config::data_dir();
+    let data_dir = ns_core::config::data_dir();
     init_logging(&data_dir);
     let args: Vec<String> = std::env::args().collect();
     let start_hidden = args.iter().any(|a| a == "--autostart" || a == "--hidden");
     // For tests on a hidden desktop: no icon on the user's taskbar.
     let no_tray = args.iter().any(|a| a == "--no-tray");
 
-    let platform = an_platform::create_platform();
+    let platform = ns_platform::create_platform();
     let runtime = match Runtime::start(data_dir, platform.clone()) {
         Ok(rt) => rt,
         Err(e) => {
             tracing::error!("cannot start: {e:#}");
-            eprintln!("activity_nagger: cannot start: {e:#}");
+            eprintln!("Nagsworth: cannot start: {e:#}");
             std::process::exit(1);
         }
     };

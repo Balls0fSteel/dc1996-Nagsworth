@@ -1,4 +1,4 @@
-# Agent notes for activity_nagger
+# Agent notes for nagsworth
 
 Shared preferences live in `L:\dev\AGENTS.md`; this file adds what is
 specific to this project. Read [PLAN.md](PLAN.md) and
@@ -8,18 +8,18 @@ specific to this project. Read [PLAN.md](PLAN.md) and
 
 | Crate | Path | Role |
 |---|---|---|
-| `an-core` | `crates/an-core` | Domain types, `Event` + `EventBus`, `Clock`, `Config`, `LocalDay`. No I/O beyond the config file. |
-| `an-platform` | `crates/an-platform` | `Platform` trait; `windows.rs` (Win32), `linux/` (X11, Wayland, logind), `mock.rs`. |
-| `an-storage` | `crates/an-storage` | SQLite (`rusqlite`, bundled), migrations, storage actor (`StorageHandle`), stats queries. |
-| `an-tracker` | `crates/an-tracker` | `Sampler`, `Segmenter` (pure) + `SegmenterTask`, `Categorizer`, `gaming/`, `WebSegmenter`. |
-| `an-rules` | `crates/an-rules` | `RuleSet` (TOML), `Engine` (pure state machine), `EngineTask`. |
-| `an-api` | `crates/an-api` | axum router on `127.0.0.1:47821/v1`, bearer auth, pairing, SSE. |
-| `an-app` | `src-tauri` | Tauri shell: `runtime.rs` (composition root, no Tauri types), `nag_bridge.rs`, `tray.rs`, `windows.rs`, `commands.rs`. |
+| `ns-core` | `crates/ns-core` | Domain types, `Event` + `EventBus`, `Clock`, `Config`, `LocalDay`. No I/O beyond the config file. |
+| `ns-platform` | `crates/ns-platform` | `Platform` trait; `windows.rs` (Win32), `linux/` (X11, Wayland, logind), `mock.rs`. |
+| `ns-storage` | `crates/ns-storage` | SQLite (`rusqlite`, bundled), migrations, storage actor (`StorageHandle`), stats queries. |
+| `ns-tracker` | `crates/ns-tracker` | `Sampler`, `Segmenter` (pure) + `SegmenterTask`, `Categorizer`, `gaming/`, `WebSegmenter`. |
+| `ns-rules` | `crates/ns-rules` | `RuleSet` (TOML), `Engine` (pure state machine), `EngineTask`. |
+| `ns-api` | `crates/ns-api` | axum router on `127.0.0.1:47821/v1`, bearer auth, pairing, SSE. |
+| `ns-app` | `src-tauri` | Tauri shell: `runtime.rs` (composition root, no Tauri types), `nag_bridge.rs`, `tray.rs`, `windows.rs`, `commands.rs`. |
 | UI | `ui/` | Svelte 5 + TS + Vite, pages `index`, `toast`, `overlay`, `pair`. |
 | Extension | `extension/` | MV3, TS, built by `scripts/build.mjs` into `dist/chrome` and `dist/firefox`. |
 
-Dependency direction: `an-core` <- `an-platform`, `an-storage` <- `an-tracker`,
-`an-rules` <- `an-api` <- `an-app`.
+Dependency direction: `ns-core` <- `ns-platform`, `ns-storage` <- `ns-tracker`,
+`ns-rules` <- `ns-api` <- `ns-app`.
 
 ## Conventions
 
@@ -52,7 +52,7 @@ For a quick Linux cross-check here, the pinned 1.90.0 toolchain has the
 Linux std (the default `stable` does not):
 
 ```bash
-cargo +1.90.0 clippy -p an-platform --target x86_64-unknown-linux-gnu --all-targets -- -D warnings
+cargo +1.90.0 clippy -p ns-platform --target x86_64-unknown-linux-gnu --all-targets -- -D warnings
 ```
 
 ### Test VMs
@@ -70,7 +70,7 @@ DHCP); ask VMware:
   xdotool, wmctrl. Only 4 GB RAM: build with `CARGO_BUILD_JOBS=2` under
   `nohup`; 6 jobs made it swap until it hung (recovered with
   `vmrun -T ws reset <vmx> soft`). Ship the tree with
-  `git archive --prefix=activity_nagger/ HEAD | ssh ... 'tar -xf - -C ~'`, then
+  `git archive --prefix=nagsworth/ HEAD | ssh ... 'tar -xf - -C ~'`, then
   run `tools/linux_checks.sh` (X11, Wayland, logind, autostart) and, after
   `npm run tauri -- build --debug --bundles deb`, `tools/linux_app_check.sh`.
 - **Windows 11** (192.168.1.153): a clean machine for
@@ -79,7 +79,7 @@ DHCP); ask VMware:
   game.
 - FreeBSD and macOS VMs exist but have no backend here (D1).
 
-A plain `cargo build` of `an-app` loads the UI from the Vite dev server
+A plain `cargo build` of `ns-app` loads the UI from the Vite dev server
 (`npm run ui:dev`); build through the Tauri CLI to embed `ui/dist`.
 
 ### Running the app during tests
@@ -88,13 +88,13 @@ Start it hidden (see the shared AGENTS.md) with a scratch data directory and
 without a tray icon, which would otherwise appear on the user's taskbar:
 
 ```powershell
-$env:AN_DATA_DIR = "<scratch>\andata"
-L:\dev\tools\run_hidden\run_hidden.ps1 -Timeout 20 -Screenshot <scratch>\shot.png -ShotAfter 12 target\debug\activity_nagger.exe --no-tray
+$env:NAGSWORTH_DATA_DIR = "<scratch>\andata"
+L:\dev\tools\run_hidden\run_hidden.ps1 -Timeout 20 -Screenshot <scratch>\shot.png -ShotAfter 12 target\debug\nagsworth.exe --no-tray
 ```
 
 The API token is in `settings` (`api.token`) in `<data dir>\activity.db`. On the
 hidden desktop `GetForegroundWindow` sees no window, so `/state` shows no app;
-use `cargo run -p an-platform --example probe` to check foreground detection.
+use `cargo run -p ns-platform --example probe` to check foreground detection.
 `run_hidden.ps1` does not work inside `Start-Job`; run it in the foreground and
 put API calls in the job instead.
 
@@ -107,4 +107,4 @@ tools\ext_e2e.ps1 -Browser firefox
 ```
 
 Branded Chrome ignores `--load-extension`; the script uses Edge for the
-Chromium build and `web-ext` for Firefox. Set `AN_PYTHON` to the venv Python.
+Chromium build and `web-ext` for Firefox. Set `NAGSWORTH_PYTHON` to the venv Python.
