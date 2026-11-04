@@ -2,6 +2,13 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_081147_1793779907: First push and CI on GitHub
+
+- Pushed `main` to https://github.com/Balls0fSteel/dc1996-Nagsworth. The
+  first CI run (41796859072) passed: Linux in 3m49s, Windows in 5m44s.
+- GitHub warns that `actions/checkout@v4` and `actions/setup-node@v4` target
+  the deprecated Node 20 (forced onto Node 24 for now).
+
 ## 2026-11-04_080403_1793779443: GitHub repository
 
 - The repository is https://github.com/Balls0fSteel/dc1996-Nagsworth (public,
