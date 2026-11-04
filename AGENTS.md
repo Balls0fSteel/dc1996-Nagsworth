@@ -14,12 +14,13 @@ specific to this project. Read [PLAN.md](PLAN.md) and
 | `ns-tracker` | `crates/ns-tracker` | `Sampler`, `Segmenter` (pure) + `SegmenterTask`, `Categorizer`, `gaming/`, `WebSegmenter`. |
 | `ns-rules` | `crates/ns-rules` | `RuleSet` (TOML), `Engine` (pure state machine), `EngineTask`. |
 | `ns-api` | `crates/ns-api` | axum router on `127.0.0.1:47821/v1`, bearer auth, pairing, SSE. |
-| `ns-app` | `src-tauri` | Tauri shell: `runtime.rs` (composition root, no Tauri types), `nag_bridge.rs`, `tray.rs`, `windows.rs`, `commands.rs`. |
+| `ns-update` | `crates/ns-update` | Update check (GitHub releases API), `Checker`, setup download checked against `SHA256SUMS`, Windows install detection and the silent setup start. |
+| `ns-app` | `src-tauri` | Tauri shell: `runtime.rs` (composition root, no Tauri types), `nag_bridge.rs`, `update.rs`, `tray.rs`, `windows.rs`, `commands.rs`; `windows/hooks.nsh` for the installer. |
 | UI | `ui/` | Svelte 5 + TS + Vite, pages `index`, `toast`, `overlay`, `pair`. |
 | Extension | `extension/` | MV3, TS, built by `scripts/build.mjs` into `dist/chrome` and `dist/firefox`. |
 
 Dependency direction: `ns-core` <- `ns-platform`, `ns-storage` <- `ns-tracker`,
-`ns-rules` <- `ns-api` <- `ns-app`.
+`ns-rules` <- `ns-api` <- `ns-app`; `ns-update` stands alone under `ns-app`.
 
 ## Conventions
 
@@ -92,7 +93,10 @@ $env:NAGSWORTH_DATA_DIR = "<scratch>\andata"
 L:\dev\tools\run_hidden\run_hidden.ps1 -Timeout 20 -Screenshot <scratch>\shot.png -ShotAfter 12 target\debug\nagsworth.exe --no-tray
 ```
 
-The API token is in `settings` (`api.token`) in `<data dir>\activity.db`. On the
+The API token is in `settings` (`api.token`) in `<data dir>\activity.db`.
+`NAGSWORTH_UPDATE_URL` (a releases JSON) and `NAGSWORTH_UPDATE_FILES` (a folder
+URL with a setup and `SHA256SUMS`) point the update check at a local server;
+the automatic check runs 30 s after the start (docs/MANUAL_CHECKS.md). On the
 hidden desktop `GetForegroundWindow` sees no window, so `/state` shows no app;
 use `cargo run -p ns-platform --example probe` to check foreground detection.
 `run_hidden.ps1` does not work inside `Start-Job`; run it in the foreground and

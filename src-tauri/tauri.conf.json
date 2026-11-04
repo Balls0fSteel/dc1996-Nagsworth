@@ -32,6 +32,13 @@
     "targets": ["nsis"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "shortDescription": "Activity tracker and break nagger",
-    "category": "Productivity"
+    "category": "Productivity",
+    "homepage": "https://github.com/Balls0fSteel/dc1996-Nagsworth",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
   }
 }

@@ -1,6 +1,6 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_093504_1793781304
+Last updated: 2026-11-04_102439_1793784279
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
@@ -279,6 +279,23 @@ the hidden desktop (dashboard, toast, break overlay on both monitors).
 Not checked by hand: the toast's entrance animation and the hover actions
 with a real mouse; see docs/MANUAL_CHECKS.md.
 
+## Updates and setup (2026-11-04_102439_1793784279)
+
+Done, after PaTorrent's updater (docs/DECISIONS.md D22, D23;
+docs/RELEASING.md "The app updating itself"): `crates/ns-update` (version
+order, GitHub releases listing, `Checker`, hash-checked setup download,
+install detection, the locked and re-checked setup start),
+`src-tauri/src/update.rs` (state, timer, downloads, the `update-status`
+event, the `update.*` settings), the Settings > Updates card, the dashboard
+banner, the tray item, `src-tauri/windows/hooks.nsh` (`/WAITPID`), the
+release workflow with a version check, the runner install/update/uninstall
+test and `SHA256SUMS`. Checked: the fake-listing run (banner, log) and the VM's
+install/update/uninstall test (24/24 in the console session). Open: the
+first published release is the first real end-to-end run of the GitHub
+side (the workflow's runner test runs only on a tag), and "Download update"
+/ "Install and restart" on an installed copy have not been clicked by hand
+(docs/MANUAL_CHECKS.md "Update check").
+
 ## Next steps
 
 0. Run the checks in docs/MANUAL_CHECKS.md.
@@ -290,6 +307,9 @@ with a real mouse; see docs/MANUAL_CHECKS.md.
 4. Check the Nagsworth name against domains, trademarks and the extension
    stores, then get a code signing certificate and submit
    the extension to the stores (docs/RELEASING.md).
+4a. Tag `v0.1.0` (or bump first): the release workflow's runner test and
+   the draft release with `SHA256SUMS`; publish it, then check that an
+   installed 0.1.0 offers the next release (docs/MANUAL_CHECKS.md).
 5. Backlog items: KDE Wayland window tracking, a structured rule editor
    (docs/BACKLOG.md).
 

@@ -324,3 +324,41 @@ export async function getAutostart(): Promise<boolean | null> {
 export async function setAutostart(enabled: boolean): Promise<void> {
   await invoke("set_autostart", { enabled });
 }
+
+// ---- Updates (src-tauri/src/update.rs); app only, like autostart ----
+
+export interface UpdateStatus {
+  current: string;
+  /** `false` for a build without an update check. */
+  enabled: boolean;
+  auto_check: boolean;
+  beta: boolean;
+  /** Installed by the setup: the app can download and install the update itself. */
+  can_install: boolean;
+  checking: boolean;
+  available: { version: string; url: string } | null;
+  /** The version the banner shows, until "Later". */
+  banner: string | null;
+  download: { got: number; total: number | null } | null;
+  /** The version whose setup is downloaded and checked. */
+  ready: string | null;
+  error: string | null;
+  last_check: number | null;
+}
+
+export const UPDATE_EVENT = "update-status";
+
+export async function updateStatus(): Promise<UpdateStatus | null> {
+  return isTauri() ? invoke<UpdateStatus>("update_status") : null;
+}
+
+export const updateApi = {
+  check: () => invoke<void>("update_check"),
+  download: () => invoke<void>("update_download"),
+  cancel: () => invoke<void>("update_cancel"),
+  install: () => invoke<void>("update_install"),
+  dismiss: () => invoke<void>("update_dismiss"),
+  setAuto: (on: boolean) => invoke<void>("update_set_auto", { on }),
+  setBeta: (on: boolean) => invoke<void>("update_set_beta", { on }),
+  openReleasePage: () => invoke<void>("update_open_release_page"),
+};

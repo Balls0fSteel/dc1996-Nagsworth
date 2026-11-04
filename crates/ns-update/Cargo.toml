@@ -1,0 +1,18 @@
+[package]
+name = "ns-update"
+description = "Nagsworth's update check and, on Windows, the download of a release's setup"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tracing.workspace = true
+ureq.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true

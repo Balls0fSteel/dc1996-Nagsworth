@@ -5,6 +5,7 @@
   import type { IconName } from "./lib/icons";
   import { notify } from "./lib/notify.svelte";
   import { pageToolbar } from "./lib/page.svelte";
+  import { updates } from "./lib/update.svelte";
   import Icon from "./lib/ui/Icon.svelte";
   import Switch from "./lib/ui/Switch.svelte";
   import Toasts from "./lib/ui/Toasts.svelte";
@@ -114,7 +115,10 @@
     refresh();
     timer = setInterval(refresh, POLL_MS);
     window.addEventListener("hashchange", onHash);
+    void updates.start();
   });
+
+  const updateBanner = $derived(updates.status?.banner ?? null);
   onDestroy(() => {
     clearInterval(timer);
     window.removeEventListener("hashchange", onHash);
@@ -221,6 +225,16 @@
       <div class="conn banner danger" role="alert" title={error}>
         <Icon name="alert" size={16} />
         <span>Can't reach the Nagsworth service. Retrying every 2 s.</span>
+      </div>
+    {/if}
+    {#if updateBanner}
+      <div class="conn banner" role="status">
+        <Icon name="download" size={16} />
+        <span class="grow">Nagsworth {updateBanner} is available.</span>
+        <a href="#settings" class="btn sm primary">
+          {updates.status?.can_install ? "Update" : "See the release"}
+        </a>
+        <button class="btn sm ghost" onclick={updates.dismiss}>Later</button>
       </div>
     {/if}
 
@@ -388,6 +402,12 @@
   .conn {
     margin: 16px 24px 0;
     max-width: 1200px;
+  }
+  .conn .grow {
+    flex: 1;
+  }
+  .conn a.btn:hover {
+    text-decoration: none;
   }
   main {
     width: 100%;

@@ -16,6 +16,7 @@ ns-tracker = { path = "crates/ns-tracker" }
 ns-rules = { path = "crates/ns-rules" }
 ns-storage = { path = "crates/ns-storage" }
 ns-api = { path = "crates/ns-api" }
+ns-update = { path = "crates/ns-update" }
 
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
@@ -36,6 +37,9 @@ tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["cors"] }
 http-body-util = "0.1"
 rand = "0.9"
+sha2 = "0.10"
+# Pure Rust TLS (rustls + ring + webpki roots): no OpenSSL on Linux, no schannel quirks.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
 base64 = "0.22"
 windows = { version = "0.62", features = [
   "Win32_Foundation",
@@ -57,6 +61,7 @@ windows = { version = "0.62", features = [
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-build = { version = "2", features = [] }
 tauri-plugin-single-instance = "2"
+tauri-plugin-opener = "2"
 
 [profile.release]
 lto = "thin"

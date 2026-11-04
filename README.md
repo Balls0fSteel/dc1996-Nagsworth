@@ -50,10 +50,24 @@ signing and the extension store packages (`npm run ext:package`).
 The app starts in the tray; left-click the icon for the dashboard. Closing
 the dashboard keeps it running; use the tray's Quit.
 
+### Updates
+
+Nagsworth asks GitHub for the list of releases 30 s after a start and twice
+a day (Settings > Updates to turn that off, to include pre-releases, or to
+check now; the tray has "Check for updates…" too). A newer version shows as
+a banner and in the tray item. On Windows, a Nagsworth installed by the
+setup downloads the new setup, checks it against the release's
+`SHA256SUMS` and, on "Install and restart", runs it silently: the app closes
+for a few seconds and comes back in the tray; data and settings stay. On
+Linux, and for a copy that was not installed by the setup, the button opens
+the release page instead.
+
 Command-line flags: `--hidden` / `--autostart` start without showing the
 dashboard; `--no-tray` skips the tray icon (tests). `NAGSWORTH_DATA_DIR` overrides the
 data directory; `RUST_LOG` the log level (logs go to `nagsworth.log` in
-the data directory).
+the data directory). `NAGSWORTH_UPDATE_URL` and `NAGSWORTH_UPDATE_FILES`
+point the update check at another releases listing and file folder (for
+tests); a build with `NAGSWORTH_NO_UPDATE_CHECK` set has no check at all.
 
 ### Browser extension
 

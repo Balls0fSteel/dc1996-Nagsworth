@@ -11,6 +11,7 @@
   } from "../lib/api";
   import { addDays, clock, dateTime, relative } from "../lib/format";
   import { notify } from "../lib/notify.svelte";
+  import { updates } from "../lib/update.svelte";
   import Card from "../lib/ui/Card.svelte";
   import Icon from "../lib/ui/Icon.svelte";
   import Segmented from "../lib/ui/Segmented.svelte";
@@ -69,6 +70,7 @@
         autostart = null;
         notify.err(e);
       });
+    void updates.start();
   });
   onDestroy(() => clearInterval(timer));
 
@@ -148,6 +150,32 @@
   }
 
   const capitalize = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+  // ---- Updates ----
+  const upd = $derived(updates.status);
+  const mb = (n: number) => `${(n / 1_048_576).toFixed(1)} MB`;
+  const downloadText = $derived.by(() => {
+    const d = upd?.download;
+    if (!d) return "";
+    return d.total
+      ? `${Math.floor((d.got * 100) / Math.max(1, d.total))} % of ${mb(d.total)}`
+      : mb(d.got);
+  });
+  const downloadFraction = $derived(
+    upd?.download?.total ? Math.min(1, upd.download.got / upd.download.total) : 0,
+  );
+  /** One line on where things stand. */
+  const updateText = $derived.by((): string => {
+    if (!upd) return "";
+    if (!upd.enabled) return "This build does not check for updates.";
+    if (upd.checking) return "Checking for updates…";
+    if (upd.ready) return `Nagsworth ${upd.ready} is downloaded and checked.`;
+    if (upd.download) return `Downloading Nagsworth ${upd.available?.version ?? ""}…`;
+    if (upd.available) return `Nagsworth ${upd.available.version} is available.`;
+    if (upd.error) return "The last check failed.";
+    if (upd.last_check) return `Nagsworth ${upd.current} is the newest version.`;
+    return `Nagsworth ${upd.current}. Not checked yet.`;
+  });
 </script>
 
 <div class="settings">
@@ -226,6 +254,88 @@
           onchange={toggleAutostart}
         />
       </div>
+    {/if}
+  </Card>
+
+  <Card title="Updates">
+    {#if upd === null}
+      <p class="small muted line">Updates are checked and installed inside the desktop app.</p>
+    {:else}
+      <div class="update-row">
+        <span class="update-text" class:muted={!upd.available && !upd.ready}>{updateText}</span>
+        {#if upd.enabled && !upd.download}
+          <button class="btn sm" onclick={updates.check} disabled={upd.checking}>
+            <Icon name="refresh" size={14} />
+            Check now
+          </button>
+        {/if}
+      </div>
+      {#if upd.error}
+        <p class="small update-error">{upd.error}</p>
+      {/if}
+      {#if upd.download}
+        <div class="update-progress">
+          <div class="bar update-bar" class:indeterminate={!upd.download.total}>
+            <span style:width="{(upd.download.total ? downloadFraction : 1) * 100}%"></span>
+          </div>
+          <span class="small muted num">{downloadText}</span>
+          <button class="btn sm ghost" onclick={updates.cancel}>Cancel</button>
+        </div>
+      {:else if upd.ready}
+        <div class="buttons update-actions">
+          <button class="btn primary" onclick={updates.install}>
+            <Icon name="zap" size={16} />
+            Install and restart
+          </button>
+          <button class="btn" onclick={updates.openReleasePage}>
+            <Icon name="external-link" size={16} />
+            What's new
+          </button>
+        </div>
+        <p class="small muted explain">
+          Nagsworth closes, the setup replaces it in place and starts the new version in the tray.
+          Your data and settings stay.
+        </p>
+      {:else if upd.available}
+        <div class="buttons update-actions">
+          {#if upd.can_install}
+            <button class="btn primary" onclick={updates.download}>
+              <Icon name="download" size={16} />
+              Download update
+            </button>
+            <button class="btn" onclick={updates.openReleasePage}>
+              <Icon name="external-link" size={16} />
+              What's new
+            </button>
+          {:else}
+            <button class="btn primary" onclick={updates.openReleasePage}>
+              <Icon name="external-link" size={16} />
+              Open the release page
+            </button>
+          {/if}
+        </div>
+        {#if !upd.can_install}
+          <p class="small muted explain">
+            This copy was not installed by the setup, so it cannot update itself. Download the
+            new version from the release page.
+          </p>
+        {/if}
+      {/if}
+      {#if upd.enabled}
+        <div class="update-switches">
+          <Switch
+            checked={upd.auto_check}
+            label="Check for updates automatically (twice a day)"
+            onchange={updates.setAuto}
+          />
+          <Switch checked={upd.beta} label="Include pre-releases" onchange={updates.setBeta} />
+        </div>
+        <p class="small muted explain">
+          A check asks GitHub for the list of releases{upd.last_check
+            ? `; the last one answered ${relative(upd.last_check, snap?.now)}`
+            : ""}. The setup is checked against the release's SHA256SUMS before it runs.
+        </p>
+      {/if}
     {/if}
   </Card>
 
@@ -394,6 +504,51 @@
     margin: 0;
     display: flex;
     align-items: center;
+  }
+
+  /* ---- Updates ---- */
+  .update-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2) var(--sp-3);
+    min-height: 28px;
+  }
+  .update-text {
+    font-weight: 500;
+  }
+  .update-text.muted {
+    font-weight: 400;
+  }
+  .update-error {
+    margin: var(--sp-1) 0 0;
+    color: var(--danger);
+    word-break: break-word;
+  }
+  .update-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  .update-bar {
+    flex: 1;
+    height: 6px;
+  }
+  .update-bar.indeterminate > span {
+    opacity: 0.5;
+  }
+  .update-actions {
+    margin-top: var(--sp-3);
+  }
+  .update-switches {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--border);
   }
 
   /* ---- Data ---- */

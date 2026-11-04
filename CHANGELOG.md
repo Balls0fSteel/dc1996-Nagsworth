@@ -2,6 +2,63 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_102439_1793784279: Auto updater and setup, after PaTorrent
+
+- New crate `ns-update` (D22): `Version` (semver order, the tag and setup
+  file names), `Manifest` from GitHub's releases JSON (newest release and
+  pre-release, drafts skipped), `Checker` (first check 30 s after the start,
+  then every 12 h; manual checks; the banner dismissed per version as
+  `update.seen`), `download_setup` (the release's setup and `SHA256SUMS`
+  over HTTPS with ureq/rustls, written as `.part`, hash-checked, renamed),
+  and on Windows `installed` (the setup's Settings > Apps entry names this
+  folder) and `run_setup` (the file locked with `FILE_SHARE_READ`,
+  re-hashed, then `/S /UPDATE /R /WAITPID=<pid> /ARGS --hidden`).
+  `NAGSWORTH_UPDATE_URL` and `NAGSWORTH_UPDATE_FILES` redirect both to a
+  local server for tests; `NAGSWORTH_NO_UPDATE_CHECK` at compile time
+  removes the check. 13 unit tests, including a local HTTP server for the
+  listing and the download (good, bad checksum, cancelled, a planted hard
+  link) and the locked start with a copy of `cmd.exe`.
+- `src-tauri/src/update.rs`: the `Updater` state (timer thread, fetch and
+  download threads, `update.check` / `update.beta` / `update.seen` in the
+  settings table), the `update-status` event and nine `update_*` commands;
+  "Install and restart" starts the setup and exits through Tauri's normal
+  shutdown. `tauri-plugin-opener` opens the release page from Rust (no new
+  capability for the webview).
+- Dashboard: Settings > Updates card (status line, Check now, Download
+  update with progress and Cancel, Install and restart, What's new / Open
+  the release page, the two switches, the last check's time) and a banner
+  in the shell with Update / Later; `ui/src/lib/update.svelte.ts` shares the
+  state. Tray: "Check for updates…", reading "Update to <version>…" once one
+  is known, opens the dashboard on Settings.
+- Installer: `src-tauri/windows/hooks.nsh` (`installerHooks`) adds
+  `/WAITPID=<pid>`, a wait of up to a minute before Tauri's running-app
+  check, so the exiting app is never killed mid-write; `installMode`
+  currentUser and the homepage set explicitly. D23 records why Tauri's
+  updater plugin (minisign keys in CI) was not used.
+- Release workflow rewritten: a `version` job (tag = Cargo.toml =
+  tauri.conf.json = the three package.json), Windows and Linux build jobs
+  that upload artifacts, the Windows job running
+  `tools/windows_install_test.ps1` on the runner (now also the `/UPDATE`
+  path: the setup must outwait a sleeper, keep the folder's files and
+  restart the app), and a `release` job that writes `SHA256SUMS` over all
+  files and makes the draft release (pre-release for a suffixed version).
+- Docs: README "Updates", docs/RELEASING.md, docs/MANUAL_CHECKS.md "Update
+  check", docs/ARCHITECTURE.md "Updates", AGENTS.md crate map.
+- Checked: fmt, clippy `-D warnings`, 73 tests, `ui:check`, `ui:build`;
+  `npm run tauri -- build --bundles nsis` (4.4 MiB setup, Tauri's NSIS with
+  the hook). The release build run hidden against a local fake listing
+  (`v9.9.9`) logged `update check: 9.9.9 is available` 30 s after the start
+  and the dashboard showed the banner with "See the release" (an unpacked
+  copy) and "Later". `tools/windows_install_test.ps1` on the clean Windows
+  11 VM: 24/24 when run in the console session through a scheduled task
+  (`/IT`); over SSH the `/R` restart has no desktop shell and the script now
+  skips that check there. Found on the way: Windows PowerShell's
+  `Start-Process -Wait` also waits for the children, so the restarted app
+  kept the test waiting; the setup is now waited for with `WaitForExit()`.
+  Not run by hand: the Settings card's Download and Install buttons on an
+  installed copy (the pieces behind them are unit-tested and the setup side
+  is the VM run), and the release workflow itself (needs a tag).
+
 ## 2026-11-04_093504_1793781304: UI design pass
 
 - Design system in `ui/src/app.css` (light/dark tokens, buttons, switch,

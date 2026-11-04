@@ -72,6 +72,19 @@ a day range; `POST /backup` writes a `VACUUM INTO` copy to
 segments (except the one-day timeline). Retention prunes segments, visits
 and nag history older than `tracking.retention_days`; totals stay.
 
+## Updates
+
+`ns-update` is pure apart from HTTP and the registry: `Version` (semver
+order), `Manifest` (the newest release and pre-release from GitHub's
+releases JSON), `Checker` (when to check, what to show, which banner was
+dismissed), `download_setup` (the setup and `SHA256SUMS`, hash-checked,
+written as `.part` and renamed) and, on Windows, `installed` (the Settings >
+Apps entry names this folder) and `run_setup` (the file locked and re-hashed,
+then `/S /UPDATE /R /WAITPID=<pid> /ARGS --hidden`). `src-tauri/src/update.rs`
+owns the state, runs the timer and the downloads on threads, persists the
+three `update.*` settings and pushes an `update-status` event to the
+windows; the tray item and the dashboard's banner and Settings card read it.
+
 ## Rules
 
 `Engine` is pure: `tick(now, offset, activity)` and `command(cmd, now)` return

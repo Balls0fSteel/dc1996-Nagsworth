@@ -10,9 +10,11 @@ use tauri::{AppHandle, Manager};
 
 use crate::app::AppCtx;
 use crate::nag_bridge::NagBridge;
+use crate::update::Updater;
 use crate::windows;
 
 const PAUSE_MINUTES: u64 = 30;
+const UPDATE_CHECK: &str = "Check for updates…";
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open dashboard", true, None::<&str>)?;
@@ -27,12 +29,15 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let reading =
         CheckMenuItem::with_id(app, "reading", "Reading mode", true, false, None::<&str>)?;
     let pair = MenuItem::with_id(app, "pair", "Pair browser extension…", true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", UPDATE_CHECK, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(
         app,
-        &[&open, &sep1, &brk, &pause, &reading, &pair, &sep2, &quit],
+        &[
+            &open, &sep1, &brk, &pause, &reading, &pair, &update, &sep2, &quit,
+        ],
     )?;
 
     let icon = app
@@ -69,6 +74,15 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                         tracing::warn!("cannot open pairing window: {e}");
                     }
                 }
+                // A known newer version: the Settings card, where it is installed from; else a
+                // check whose answer the card shows.
+                "update" => {
+                    let updater = app.state::<Updater>();
+                    if updater.status().available.is_none() {
+                        updater.check_now();
+                    }
+                    windows::show_settings(app);
+                }
                 "quit" => app.exit(0),
                 _ => {}
             }
@@ -91,10 +105,14 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     std::thread::Builder::new()
         .name("an-tray".into())
         .spawn(move || {
-            let mut last = (String::new(), None, None);
+            let mut last = (String::new(), None, None, String::new());
             loop {
                 std::thread::sleep(Duration::from_secs(2));
                 let ctx = app.state::<AppCtx>();
+                let update_text = match app.state::<Updater>().status().available {
+                    Some(a) => format!("Update to {}…", a.version),
+                    None => UPDATE_CHECK.to_string(),
+                };
                 let activity = ctx.activity.borrow().clone();
                 let reading_mode = ctx.engine.borrow().reading_mode;
                 let paused = activity.kind == Some(SegmentKind::Paused);
@@ -132,7 +150,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 if last.2 != Some(reading_mode) {
                     let _ = reading.set_checked(reading_mode);
                 }
-                last = (tip, Some(paused), Some(reading_mode));
+                if last.3 != update_text {
+                    let _ = update.set_text(&update_text);
+                }
+                last = (tip, Some(paused), Some(reading_mode), update_text);
             }
         })
         .expect("spawn tray thread");

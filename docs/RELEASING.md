@@ -9,7 +9,9 @@ npm run tauri build
 Windows produces `target/release/bundle/nsis/Nagsworth_<version>_x64-setup.exe`
 (per-user install, no admin rights). On the first run the Tauri bundler
 downloads its pinned NSIS toolset from Tauri's GitHub releases and checks
-the hashes. On Linux, `src-tauri/tauri.linux.conf.json` switches the targets to
+the hashes. `src-tauri/windows/hooks.nsh` adds the `/WAITPID=<pid>` switch
+the app's own update uses (below) to Tauri's installer template. On Linux,
+`src-tauri/tauri.linux.conf.json` switches the targets to
 `.deb` and AppImage; install the WebKitGTK build dependencies listed in
 `.github/workflows/ci.yml` first.
 
@@ -25,13 +27,52 @@ Store) and `nagsworth-firefox-<version>.zip` (addons.mozilla.org).
 Bump the version in `Cargo.toml` (`[workspace.package]`),
 `src-tauri/tauri.conf.json`, `package.json`, `ui/package.json` and
 `extension/package.json` (the extension manifest takes its version from the
-last one).
+last one). The release workflow refuses a tag whose version differs from any
+of them: the app compares the workspace version with the release tags, and
+the setup's file name comes from `tauri.conf.json`. Versions are
+`MAJOR.MINOR.PATCH`, with a `-rc.1`-style suffix for a pre-release (which
+the workflow marks as such on GitHub, and which the app offers only with
+"Include pre-releases" on).
 
 ## GitHub release
 
 Push a tag `v<version>`. `.github/workflows/release.yml` builds the Windows
-installer, the `.deb` and AppImage, and the two extension zips, and attaches
-them to a draft release to review and publish by hand.
+installer (and installs, updates and uninstalls it on the runner with
+`tools/windows_install_test.ps1`), the `.deb` and AppImage, and the two
+extension zips, writes a `SHA256SUMS` over all of them, and attaches
+everything to a draft release to review and publish by hand. Started by
+hand (`workflow_dispatch`) it builds the same files as artifacts and makes
+no release.
+
+Keep the file names: the app's update check looks for
+`Nagsworth_<version>_x64-setup.exe` and `SHA256SUMS` among the release's
+files (`crates/ns-update/src/version.rs`). A draft release is invisible to
+the check; it sees the release once it is published.
+
+## The app updating itself
+
+Nagsworth checks GitHub's releases list 30 s after a start and then twice a
+day (Settings > Updates, off with "Check for updates automatically";
+"Check now" and the tray's "Check for updates…" ask at once). A newer
+version shows as a banner in the dashboard (dismissed per version with
+"Later"), in the Settings card and in the tray item's text.
+
+On Windows, a Nagsworth that the setup installed (its Settings > Apps entry
+names the folder it runs from) downloads the release's setup to
+`%TEMP%\Nagsworth-update`, checks it against the release's `SHA256SUMS`,
+and on "Install and restart" checks it once more, starts it silently with
+`/S /UPDATE /R /WAITPID=<its pid> /ARGS --hidden` and exits. The setup waits
+for the process to exit (`src-tauri/windows/hooks.nsh`), installs over the
+same folder without new shortcuts, keeps the data, and starts the new
+version in the tray. A copy run from anywhere else, and Linux, get the
+release page instead. `crates/ns-update` holds the logic;
+`src-tauri/src/update.rs` the state and the commands;
+docs/DECISIONS.md D22 the reasoning.
+
+To try it without a release: serve a fake listing and files locally and
+point the app at them (docs/MANUAL_CHECKS.md, "Update check"). A build with
+`NAGSWORTH_NO_UPDATE_CHECK` set at compile time has no check (for a package
+that a package manager updates).
 
 ## Code signing (Windows)
 

@@ -13,6 +13,7 @@ use tracing_subscriber::fmt::writer::MakeWriterExt;
 
 use crate::nag_bridge::NagBridge;
 use crate::runtime::Runtime;
+use crate::update::Updater;
 use crate::{commands, tray, windows};
 
 /// What commands and the tray need from the runtime.
@@ -88,13 +89,17 @@ pub fn run() {
     let engine = runtime.engine.clone();
     let bridge_platform = platform;
     let bridge = NagBridge::default();
+    let updater = Updater::new(runtime.storage.clone());
+    let updater_for_setup = updater.clone();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             windows::show_dashboard(app);
         }))
+        .plugin(tauri_plugin_opener::init())
         .manage(ctx)
         .manage(bridge.clone())
+        .manage(updater)
         .manage(RuntimeSlot(Mutex::new(Some(runtime))))
         .invoke_handler(tauri::generate_handler![
             commands::get_api_info,
@@ -104,6 +109,15 @@ pub fn run() {
             commands::resize_toast,
             commands::get_autostart,
             commands::set_autostart,
+            commands::update_status,
+            commands::update_check,
+            commands::update_download,
+            commands::update_cancel,
+            commands::update_install,
+            commands::update_dismiss,
+            commands::update_set_auto,
+            commands::update_set_beta,
+            commands::update_open_release_page,
         ])
         .setup(move |app| {
             // Without a tray (no Explorer, another desktop) the dashboard is
@@ -113,6 +127,7 @@ pub fn run() {
                     .inspect_err(|e| tracing::warn!("no tray icon: {e}"))
                     .is_ok();
             bridge.spawn(app.handle().clone(), &bus, engine, bridge_platform);
+            updater_for_setup.spawn(app.handle().clone());
             if !start_hidden || !tray_ok {
                 windows::show_dashboard(app.handle());
             }

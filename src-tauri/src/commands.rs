@@ -5,8 +5,11 @@ use ns_core::ControlCommand;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
+use tauri_plugin_opener::OpenerExt;
+
 use crate::app::AppCtx;
 use crate::nag_bridge::{NagBridge, NagView};
+use crate::update::{UpdateStatus, Updater};
 use crate::windows;
 
 #[derive(Serialize)]
@@ -65,5 +68,57 @@ pub fn get_autostart(ctx: State<'_, AppCtx>) -> Result<bool, String> {
 pub fn set_autostart(ctx: State<'_, AppCtx>, enabled: bool) -> Result<(), String> {
     ctx.platform
         .set_autostart(enabled)
+        .map_err(|e| e.to_string())
+}
+
+// ---- Updates (update.rs) ----
+
+#[tauri::command]
+pub fn update_status(updater: State<'_, Updater>) -> UpdateStatus {
+    updater.status()
+}
+
+#[tauri::command]
+pub fn update_check(updater: State<'_, Updater>) {
+    updater.check_now();
+}
+
+#[tauri::command]
+pub fn update_download(updater: State<'_, Updater>) -> Result<(), String> {
+    updater.download()
+}
+
+#[tauri::command]
+pub fn update_cancel(updater: State<'_, Updater>) {
+    updater.cancel();
+}
+
+#[tauri::command]
+pub fn update_install(updater: State<'_, Updater>) -> Result<(), String> {
+    updater.install()
+}
+
+#[tauri::command]
+pub fn update_dismiss(updater: State<'_, Updater>) {
+    updater.dismiss();
+}
+
+#[tauri::command]
+pub fn update_set_auto(updater: State<'_, Updater>, on: bool) {
+    updater.set_auto(on);
+}
+
+#[tauri::command]
+pub fn update_set_beta(updater: State<'_, Updater>, on: bool) {
+    updater.set_beta(on);
+}
+
+/// The available release's page in the browser (notes, and the files for a copy that cannot
+/// install the update itself).
+#[tauri::command]
+pub fn update_open_release_page(app: AppHandle, updater: State<'_, Updater>) -> Result<(), String> {
+    let url = updater.release_url().ok_or("no newer version is known")?;
+    app.opener()
+        .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
 }

@@ -24,6 +24,14 @@ pub fn show_dashboard<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// The dashboard on its Settings page (the tray's update item).
+pub fn show_settings<R: Runtime>(app: &AppHandle<R>) {
+    show_dashboard(app);
+    if let Some(w) = app.get_webview_window(MAIN) {
+        let _ = w.eval("location.hash = 'settings'");
+    }
+}
+
 pub fn show_pairing<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     if let Some(w) = app.get_webview_window(PAIR) {
         w.show()?;
