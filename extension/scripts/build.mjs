@@ -15,7 +15,7 @@ const staging = join(dist, "build");
 
 rmSync(dist, { recursive: true, force: true });
 
-for (const entry of ["background", "options"]) {
+for (const entry of ["background", "options", "popup"]) {
   await build({
     root,
     configFile: false,

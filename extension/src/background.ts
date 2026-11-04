@@ -2,8 +2,9 @@
 // and sends them to the desktop app. The app decides what counts (only while
 // the browser is the foreground app and the user is not idle).
 
-import { post, NotPaired } from "./api";
+import { forgetPort, get, post, NotPaired } from "./api";
 import { browserName, ext, settings } from "./browser";
+import { badgeText, type HostUsage } from "./format";
 import { drop, load, push, type EventKind, type TabEvent } from "./queue";
 
 const BROWSER = browserName();
@@ -29,6 +30,13 @@ async function getRetry(): Promise<Retry> {
 
 let flushing = false;
 
+/** What the popup shows under "Now": the last tab reported (after the
+ * incognito scrub), kept in storage.session only. */
+async function remember(e: TabEvent) {
+  if (e.kind === "tab_removed") return;
+  await ext.storage.session.set({ last: { url: e.url, title: e.title, ts: e.ts } });
+}
+
 async function includeIncognito(): Promise<boolean> {
   const s = await ext.storage.local.get("includeIncognito");
   return s.includeIncognito === true;
@@ -53,6 +61,7 @@ async function record(e: TabEvent) {
   if (e.incognito && !(await includeIncognito())) {
     e = { ...e, kind: "focus_lost", url: null, title: null, incognito: false };
   }
+  await remember(e);
   const len = await push(e);
   if (len >= FLUSH_AT) void flush();
 }
@@ -73,6 +82,7 @@ async function flush(): Promise<void> {
         await drop(batch.length);
       }
       if (retry.at || retry.backoffMs) await ext.storage.session.remove(RETRY_KEY);
+      await ext.storage.local.set({ lastSent: Date.now() });
     } catch (e) {
       if (!(e instanceof NotPaired)) {
         const backoffMs = Math.min(MAX_BACKOFF_MS, Math.max(5_000, retry.backoffMs * 2));
@@ -97,6 +107,7 @@ async function heartbeat() {
   } catch {
     // No browser window.
   }
+  if (active) await remember(active);
   try {
     await post("/ext/heartbeat", {
       client_id: clientId,
@@ -104,9 +115,26 @@ async function heartbeat() {
       version: ext.runtime.getManifest().version,
       active,
     });
+    await ext.storage.local.set({ lastSent: Date.now() });
   } catch {
     // The app may be closed; the queue keeps tab events until it is back.
   }
+  await updateBadge();
+}
+
+/** Today's web time on the toolbar icon when the user turned the badge on. */
+async function updateBadge() {
+  const { badge } = await ext.storage.local.get("badge");
+  let text = "";
+  if (badge === true) {
+    try {
+      const { hosts } = await get<{ hosts?: HostUsage[] }>("/stats/web");
+      text = badgeText((hosts ?? []).reduce((n, h) => n + h.ms, 0));
+    } catch {
+      text = "";
+    }
+  }
+  await ext.action.setBadgeText({ text });
 }
 
 ext.tabs.onActivated.addListener(async ({ tabId }) => {
@@ -161,6 +189,11 @@ ext.runtime.onMessage.addListener((msg: { type?: string }) => {
   if (msg?.type === "paired") {
     void heartbeat();
     void flush();
+  }
+  if (msg?.type === "badge") void updateBadge();
+  if (msg?.type === "forgotten") {
+    forgetPort();
+    void ext.action.setBadgeText({ text: "" });
   }
 });
 

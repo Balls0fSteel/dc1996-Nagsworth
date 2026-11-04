@@ -1,0 +1,85 @@
+/* Tokens from the dashboard (ui/src/app.css), both color schemes. */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --border: #e4e7ec;
+  --text: #161b26;
+  --text-2: #414a5a;
+  --muted: #6b7484;
+  --accent: #4f46e5;
+  --accent-text: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --danger: #dc2626;
+  --ok: #059669;
+  --warn: #d97706;
+  --track: #e4e7ec;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1218;
+    --panel: #171b23;
+    --border: #2a303c;
+    --text: #e7e9ee;
+    --text-2: #b8bfcc;
+    --muted: #8a93a3;
+    --accent: #818cf8;
+    --accent-text: #0b0d14;
+    --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+    --danger: #f87171;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --track: #2a303c;
+  }
+}
+
+body {
+  font: 13px/1.4 var(--font);
+  color: var(--text);
+  background: var(--bg);
+  margin: 0;
+}
+h1 { font-size: 15px; margin: 0; }
+h2 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+p { margin: 0; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.ok { color: var(--ok); }
+.err { color: var(--danger); }
+.warn { color: var(--warn); }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button.danger { color: var(--danger); }
+button:disabled { opacity: 0.5; cursor: default; }
+input[type="text"] {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}

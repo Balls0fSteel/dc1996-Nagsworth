@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nagsworth</title>
+    <link rel="stylesheet" href="common.css" />
+    <style>
+      body { width: 340px; padding: 12px; display: grid; gap: 10px; }
+      header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+      header a { font-size: 12px; }
+      #status { font-size: 12px; }
+      .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+      .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .row .val { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text-2); }
+      #now-site { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #now-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pill {
+        display: inline-block; font-size: 11px; font-weight: 600; border-radius: 999px;
+        padding: 1px 8px; background: var(--accent-soft); color: var(--text-2);
+      }
+      .pill.ok { color: var(--ok); }
+      .pill.warn { color: var(--warn); }
+      #hosts { display: grid; gap: 3px; margin-top: 6px; }
+      #today-total { font-size: 18px; font-weight: 600; }
+      .rule { display: grid; gap: 3px; padding: 6px 0; border-top: 1px solid var(--border); }
+      .rule:first-of-type { border-top: 0; padding-top: 0; }
+      .bar { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+      .bar > div { height: 100%; background: var(--accent); }
+      .bar > div.warn { background: var(--warn); }
+      .bar > div.over { background: var(--danger); }
+      .rule .msg { font-size: 12px; color: var(--text-2); }
+      .rule .acts { display: flex; gap: 6px; }
+      .rule .acts button { font-size: 12px; padding: 2px 8px; }
+      #controls { display: flex; gap: 6px; flex-wrap: wrap; }
+      #control-msg { font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Nagsworth</h1>
+      <a href="#" id="open-options">Settings</a>
+    </header>
+    <p id="status" class="muted">Checking…</p>
+
+    <div id="paired" hidden>
+      <section class="card" id="now">
+        <div class="row"><h2>Now</h2><span id="now-state" class="pill"></span></div>
+        <p id="now-site"></p>
+        <p id="now-title" class="muted"></p>
+      </section>
+
+      <section class="card" id="today" style="margin-top: 10px">
+        <div class="row"><h2>Today on the web</h2><span id="today-total"></span></div>
+        <div id="hosts"></div>
+      </section>
+
+      <section class="card" id="nags" style="margin-top: 10px">
+        <h2>Nags</h2>
+        <div id="rules"></div>
+      </section>
+
+      <section id="controls" style="margin-top: 10px">
+        <button id="break">Start break now</button>
+        <button id="pause">Pause tracking 30 min</button>
+        <button id="resume" hidden>Resume tracking</button>
+      </section>
+      <p id="control-msg" class="muted"></p>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -11,5 +11,5 @@
     "128": "icons/icon-128.png"
   },
   "options_ui": { "page": "options.html", "open_in_tab": false },
-  "action": { "default_title": "Nagsworth", "default_popup": "options.html" }
+  "action": { "default_title": "Nagsworth", "default_popup": "popup.html" }
 }
