@@ -1,6 +1,8 @@
 # Break exercises: design brief
 
 Drafted 2026-11-04_222508_1793831108. Status: plan, nothing built.
+Decided 2026-11-04_223500_1793831700: open question 1, a third default rule `move-break`
+(every 30 min, 2 min, toast), is in; see "Default rules".
 Meant to be handed to an implementation session as its whole task once the
 open questions at the end are decided. Read AGENTS.md, PLAN.md and
 CHANGELOG.md first; the repository conventions there apply.
@@ -223,13 +225,53 @@ it only changes variety.
 - **Tray / dashboard**: nothing new; "Start break now" already reaches the
   engine.
 
-Default rules: the shipped `micro-break` (10 min / 30 s) gets
-`exercises = { tags = ["eyes", "neck", "shoulders", "wrists"] }` so it stays
-at the desk; `rest-break` (50 min / 10 min) gets the full planner. Whether
-to add a 30 min "move" break is open question 1.
+### Default rules (decided 2026-11-04_223500_1793831700)
+
+Three break rules ship in `config/default.toml`, spaced so they line up
+with the evidence (light activity every 30 min, a longer rest every hour):
+
+```toml
+[[rules]]
+id = "micro-break"
+name = "Micro-break: eyes and neck"
+trigger = { kind = "interval", every = "20m", break_for = "30s" }
+escalation = [ { after = "0s", level = "toast" } ]
+exercises = { tags = ["eyes", "neck", "shoulders", "wrists"] }   # stays at the desk
+
+[[rules]]
+id = "move-break"
+name = "Move: get up for two minutes"
+trigger = { kind = "interval", every = "30m", break_for = "2m" }
+escalation = [ { after = "0s", level = "toast" } ]
+exercises = { tags = ["walk", "legs", "hips"] }   # a walk, squats or sit-to-stands
+
+[[rules]]
+id = "rest-break"
+name = "Take a 10 minute break"
+trigger = { kind = "interval", every = "60m", break_for = "10m" }
+scope = "any"
+idle_policy = "pause"
+escalation = [ { after = "0s", level = "toast" }, { after = "90s", level = "overlay" } ]
+snooze = { duration = "5m", max_per_day = 3 }
+# no exercises key: the full planner (walk first, then a region-balanced routine)
+```
+
+`micro-break` moves from every 10 min to every 20 min (the 20-20-20
+spacing) so the three rules do not fire within minutes of each other;
+`rest-break` moves from 50 to 60 min. Because rest resets every interval
+rule whose `break_for` is covered, a 10 min rest break also satisfies the
+other two, and a 2 min move break satisfies the micro-break: the engine's
+existing "lock/idle time counts as rest" semantics already do this. When
+two breaks start together the bridge already shows one countdown (the
+longest) and demotes the other to a toast. Existing installs keep their
+own `config.toml`; the new rule is only in the shipped defaults, noted in
+the changelog and in docs/MANUAL_CHECKS.md.
 
 ## Work items
 
+0. `config/default.toml`: the three default rules above; the rule tests
+   in `crates/ns-rules/src/rule.rs` that read the default config
+   (`micro-break` expectations) follow.
 1. `config/exercises.toml` with the 28 items above, each with `cue`,
    `steps`, `evidence`, `why`; a validation test (unique ids, seconds > 0,
    known tags, every flag known, steps 1-4 lines, `why` cites a source
@@ -256,12 +298,8 @@ touched).
 
 ## Open questions
 
-1. **A third default rule?** The evidence points at light activity every
-   30 min, which the shipped rules do not ask for (micro-break every 10
-   min for 30 s, rest every 50 min). Proposal: `move-break` every 30 min,
-   2 min, toast only, tags `["legs", "walk"]`, with `rest-break` moved to
-   every 60 min. Three overlapping break rules may feel like noise; the
-   engine already collapses breaks that start together into one countdown.
+1. ~~A third default rule?~~ Decided 2026-11-04_223500_1793831700: yes, see "Default
+   rules" above.
 2. **Audio cues** for step changes on the overlay (the app already beeps for
    deferred overlays). Proposal: a soft tick on step change, off by default.
 3. **Completion tracking**: record whether the user let the routine run or

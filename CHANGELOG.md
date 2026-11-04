@@ -2,6 +2,16 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_223500_1793831700: Break exercises: third default rule decided
+
+- docs/EXERCISES.md "Default rules": `move-break` (every 30 min, 2 min,
+  toast, tags walk/legs/hips) joins the shipped rules; `micro-break` goes
+  from every 10 min to every 20 min and `rest-break` from 50 to 60 min so
+  the three line up (light activity every 30 min, a longer rest every
+  hour) and rarely fire within minutes of each other. Still a plan: the
+  config change is work item 0 of the brief, nothing in `config/default.toml`
+  changed yet.
+
 ## 2026-11-04_222508_1793831108: Break exercises design brief
 
 - docs/EXERCISES.md: what to show during a break instead of "Stand up,

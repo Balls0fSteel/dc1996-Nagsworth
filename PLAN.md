@@ -1,6 +1,6 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_222508_1793831108
+Last updated: 2026-11-04_223500_1793831700
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
@@ -358,7 +358,9 @@ list with per-step countdowns, the toast cue, and a Settings > Exercises
 card. Left out on purpose: soleus push-ups as a headline, palming, neck
 circles, nerve gliding. Nothing is built; open questions (a 30 min
 "move" rule, audio cues, completion tracking, the band tier) are at the
-end of the brief.
+end of the brief. Decided 2026-11-04_223500_1793831700: a third default rule
+`move-break` (every 30 min, 2 min, toast, walk/legs items) ships, with
+`micro-break` moved to every 20 min and `rest-break` to every 60 min.
 
 ## Next steps
 
@@ -379,8 +381,9 @@ end of the brief.
    installed 0.1.0 offers the next release (docs/MANUAL_CHECKS.md).
 5. Backlog items: KDE Wayland window tracking, a structured rule editor
    (docs/BACKLOG.md).
-6. Break exercises: decide the open questions in docs/EXERCISES.md, then
-   hand the brief to an implementation session.
+6. Break exercises: decide the remaining open questions in
+   docs/EXERCISES.md (audio cues, completion tracking, band tier, habits),
+   then hand the brief to an implementation session.
 
 ## Risks and open questions
 
