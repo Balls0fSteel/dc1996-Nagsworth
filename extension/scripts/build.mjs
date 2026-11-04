@@ -42,7 +42,9 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 base.version = pkg.version;
 
 const targets = {
-  chrome: { ...base, background: { service_worker: "background.js" } },
+  // storage.session (the retry deadline across worker restarts) needs
+  // Chrome 102 and Firefox 115.
+  chrome: { ...base, minimum_chrome_version: "102", background: { service_worker: "background.js" } },
   firefox: {
     ...base,
     background: { scripts: ["background.js"] },
