@@ -15,6 +15,8 @@ pub struct AppUsage {
     pub category_kind: CategoryKind,
     pub is_game: bool,
     pub ms: i64,
+    /// Hands-on part of `ms`.
+    pub input_ms: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,6 +26,7 @@ pub struct CategoryUsage {
     pub kind: CategoryKind,
     pub color: Option<String>,
     pub ms: i64,
+    pub input_ms: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +36,7 @@ pub struct DailyUsage {
     pub kind: CategoryKind,
     pub color: Option<String>,
     pub ms: i64,
+    pub input_ms: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,6 +44,7 @@ pub struct KindTotal {
     pub day: LocalDay,
     pub kind: SegmentKind,
     pub ms: i64,
+    pub input_ms: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +57,7 @@ pub struct TimelineEntry {
     pub exe_name: Option<String>,
     pub title: Option<String>,
     pub category_kind: Option<CategoryKind>,
+    pub input_ms: i64,
 }
 
 /// One segment with names resolved, for exports.
@@ -65,6 +71,7 @@ pub struct ExportSegment {
     pub display_name: Option<String>,
     pub category: Option<String>,
     pub title: Option<String>,
+    pub input_ms: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,7 +100,8 @@ fn day(s: String) -> rusqlite::Result<LocalDay> {
 impl Db {
     pub fn usage_by_app(&self, from: LocalDay, to: LocalDay) -> Result<Vec<AppUsage>> {
         let mut stmt = self.conn.prepare(
-            "SELECT a.id, a.exe_name, a.display_name, c.name, c.kind, a.is_game, SUM(t.ms) AS ms
+            "SELECT a.id, a.exe_name, a.display_name, c.name, c.kind, a.is_game, SUM(t.ms) AS ms,
+                 SUM(t.input_ms)
              FROM daily_app_totals t
              JOIN apps a ON a.id = t.app_id
              JOIN categories c ON c.id = a.category_id
@@ -110,6 +118,7 @@ impl Db {
                 category_kind: kind.parse().unwrap_or_default(),
                 is_game: r.get(5)?,
                 ms: r.get(6)?,
+                input_ms: r.get(7)?,
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -117,7 +126,7 @@ impl Db {
 
     pub fn usage_by_category(&self, from: LocalDay, to: LocalDay) -> Result<Vec<CategoryUsage>> {
         let mut stmt = self.conn.prepare(
-            "SELECT c.id, c.name, c.kind, c.color, SUM(t.ms) AS ms
+            "SELECT c.id, c.name, c.kind, c.color, SUM(t.ms) AS ms, SUM(t.input_ms)
              FROM daily_app_totals t
              JOIN apps a ON a.id = t.app_id
              JOIN categories c ON c.id = a.category_id
@@ -132,6 +141,7 @@ impl Db {
                 kind: kind.parse().unwrap_or_default(),
                 color: r.get(3)?,
                 ms: r.get(4)?,
+                input_ms: r.get(5)?,
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -139,7 +149,7 @@ impl Db {
 
     pub fn daily_usage(&self, from: LocalDay, to: LocalDay) -> Result<Vec<DailyUsage>> {
         let mut stmt = self.conn.prepare(
-            "SELECT t.local_day, c.name, c.kind, c.color, SUM(t.ms)
+            "SELECT t.local_day, c.name, c.kind, c.color, SUM(t.ms), SUM(t.input_ms)
              FROM daily_app_totals t
              JOIN apps a ON a.id = t.app_id
              JOIN categories c ON c.id = a.category_id
@@ -154,6 +164,7 @@ impl Db {
                 kind: kind.parse().unwrap_or_default(),
                 color: r.get(3)?,
                 ms: r.get(4)?,
+                input_ms: r.get(5)?,
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -161,18 +172,23 @@ impl Db {
 
     pub fn kind_totals(&self, from: LocalDay, to: LocalDay) -> Result<Vec<KindTotal>> {
         let mut stmt = self.conn.prepare(
-            "SELECT local_day, kind, ms FROM daily_kind_totals
+            "SELECT local_day, kind, ms, input_ms FROM daily_kind_totals
              WHERE local_day BETWEEN ?1 AND ?2 ORDER BY local_day, kind",
         )?;
         let rows = stmt.query_map([from.to_string(), to.to_string()], |r| {
             let kind: String = r.get(1)?;
-            Ok((day(r.get(0)?)?, kind, r.get(2)?))
+            Ok((day(r.get(0)?)?, kind, r.get(2)?, r.get(3)?))
         })?;
         let mut out = Vec::new();
         for row in rows {
-            let (day, kind, ms) = row?;
+            let (day, kind, ms, input_ms) = row?;
             if let Ok(kind) = kind.parse() {
-                out.push(KindTotal { day, kind, ms });
+                out.push(KindTotal {
+                    day,
+                    kind,
+                    ms,
+                    input_ms,
+                });
             }
         }
         Ok(out)
@@ -180,7 +196,8 @@ impl Db {
 
     pub fn timeline(&self, day: LocalDay) -> Result<Vec<TimelineEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT s.id, s.start_ts, s.end_ts, s.kind, s.app_id, a.exe_name, t.text, c.kind
+            "SELECT s.id, s.start_ts, s.end_ts, s.kind, s.app_id, a.exe_name, t.text, c.kind,
+                 s.input_ms
              FROM segments s
              LEFT JOIN apps a ON a.id = s.app_id
              LEFT JOIN categories c ON c.id = a.category_id
@@ -199,6 +216,7 @@ impl Db {
                 exe_name: r.get(5)?,
                 title: r.get(6)?,
                 category_kind: cat.and_then(|c| c.parse().ok()),
+                input_ms: r.get(8)?,
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -220,7 +238,8 @@ impl Db {
 
     pub fn export_segments(&self, from: LocalDay, to: LocalDay) -> Result<Vec<ExportSegment>> {
         let mut stmt = self.conn.prepare(
-            "SELECT s.local_day, s.start_ts, s.end_ts, s.kind, a.exe_name, a.display_name, c.name, t.text
+            "SELECT s.local_day, s.start_ts, s.end_ts, s.kind, a.exe_name, a.display_name, c.name, t.text,
+                 s.input_ms
              FROM segments s
              LEFT JOIN apps a ON a.id = s.app_id
              LEFT JOIN categories c ON c.id = a.category_id
@@ -238,6 +257,7 @@ impl Db {
                 display_name: r.get(5)?,
                 category: r.get(6)?,
                 title: r.get(7)?,
+                input_ms: r.get(8)?,
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -276,6 +296,18 @@ impl Db {
     pub fn category_kind_ms(&self, day: LocalDay, kind: CategoryKind) -> Result<i64> {
         Ok(self.conn.query_row(
             "SELECT COALESCE(SUM(t.ms), 0) FROM daily_app_totals t
+             JOIN apps a ON a.id = t.app_id JOIN categories c ON c.id = a.category_id
+             WHERE t.local_day = ?1 AND c.kind = ?2",
+            [day.to_string(), kind.as_str().to_string()],
+            |r| r.get(0),
+        )?)
+    }
+
+    /// Hands-on time of apps whose category has `kind` on `day`; the
+    /// input-gated sibling of [`Db::category_kind_ms`].
+    pub fn category_kind_input_ms(&self, day: LocalDay, kind: CategoryKind) -> Result<i64> {
+        Ok(self.conn.query_row(
+            "SELECT COALESCE(SUM(t.input_ms), 0) FROM daily_app_totals t
              JOIN apps a ON a.id = t.app_id JOIN categories c ON c.id = a.category_id
              WHERE t.local_day = ?1 AND c.kind = ?2",
             [day.to_string(), kind.as_str().to_string()],

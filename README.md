@@ -13,6 +13,11 @@ time for a break.
   mode, daily limits per category ("2h of gaming"), continuous-use limits and
   schedules ("no gaming 23:00-06:00"), escalating from a toast to a
   fullscreen overlay on every monitor to (optionally) locking the workstation.
+- **Counts hands-on time**: a gaming limit burns only the seconds after a
+  key press, mouse move or controller input (XInput on Windows), so an
+  evening of 1 h 50 min in front of a game with 1 h of actual play costs
+  1 h of the budget. Both numbers show on the dashboard
+  ([docs/HANDS_ON_TIME.md](docs/HANDS_ON_TIME.md)).
 
 Everything stays on your machine: one SQLite file under
 `%LOCALAPPDATA%\nagsworth\` (`~/.local/share/nagsworth/` on
@@ -103,6 +108,12 @@ scope = { category = "Game" }
 trigger = { kind = "daily_total", limit = "2h", renag_every = "15m" }
 escalation = [ { after = "0s", level = "toast" }, { after = "10m", level = "overlay" } ]
 ```
+
+Hands-on time: `[tracking] hands_on_games = true` makes rules for the Game
+category count only the `input_window_s` (5) seconds after each input
+(`idle_policy = "input"`); set `idle_policy` on a rule to override it, and
+`gamepad = false` to stop polling XInput controllers. Both switches are on
+the Settings page.
 
 Games: the built-in list of game executables can be extended with
 `known_games.toml` in the data directory (`games = ["MyGame.exe"]`, or

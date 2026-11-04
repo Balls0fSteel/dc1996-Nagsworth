@@ -11,6 +11,13 @@
   } from "../lib/api";
   import { addDays, clock, dateTime, relative } from "../lib/format";
   import { notify } from "../lib/notify.svelte";
+  import {
+    INPUT_WINDOW_MAX,
+    INPUT_WINDOW_MIN,
+    readHandsOn,
+    withHandsOn,
+    type HandsOnSettings,
+  } from "../lib/toml";
   import { updates } from "../lib/update.svelte";
   import Card from "../lib/ui/Card.svelte";
   import Icon from "../lib/ui/Icon.svelte";
@@ -40,6 +47,10 @@
   let autostart = $state<boolean | null | undefined>(undefined);
   let autostartBusy = $state(false);
 
+  /** The `[tracking]` hands-on keys from the config file; `undefined` while loading, `null` if it failed. */
+  let handsOn = $state<HandsOnSettings | null | undefined>(undefined);
+  let handsOnBusy = $state(false);
+
   let exportDays = $state(30);
   let exporting = $state<"csv" | "json" | null>(null);
   let backingUp = $state(false);
@@ -68,6 +79,13 @@
       .then((on) => (autostart = on))
       .catch((e) => {
         autostart = null;
+        notify.err(e);
+      });
+    api
+      .rules()
+      .then((r) => (handsOn = readHandsOn(r.toml)))
+      .catch((e) => {
+        handsOn = null;
         notify.err(e);
       });
     void updates.start();
@@ -114,6 +132,41 @@
     } finally {
       autostartBusy = false;
     }
+  }
+
+  /** Edits `[tracking]` in the config file as it is now on disk and saves it. */
+  async function saveHandsOn(patch: Partial<HandsOnSettings>, done: string) {
+    if (handsOnBusy) return;
+    handsOnBusy = true;
+    try {
+      const { toml } = await api.rules();
+      const r = await api.saveRules(withHandsOn(toml, patch));
+      handsOn = readHandsOn(r.toml);
+      notify.ok(done);
+    } catch (e) {
+      notify.err(e);
+      handsOn = await api
+        .rules()
+        .then((r) => readHandsOn(r.toml))
+        .catch(() => handsOn ?? null);
+    } finally {
+      handsOnBusy = false;
+    }
+  }
+
+  function setInputWindow(input: HTMLInputElement) {
+    if (!handsOn) return;
+    const n = Math.round(Number(input.value));
+    if (!Number.isFinite(n) || n < INPUT_WINDOW_MIN || n > INPUT_WINDOW_MAX) {
+      notify.err(`Seconds per input must be between ${INPUT_WINDOW_MIN} and ${INPUT_WINDOW_MAX}`);
+      input.value = String(handsOn.input_window_s);
+      return;
+    }
+    if (n === handsOn.input_window_s) {
+      input.value = String(n);
+      return;
+    }
+    void saveHandsOn({ input_window_s: n }, `Each input counts ${n} s; restart to apply`);
   }
 
   function today(): string {
@@ -254,6 +307,49 @@
           onchange={toggleAutostart}
         />
       </div>
+    {/if}
+  </Card>
+
+  <Card title="Tracking">
+    {#if handsOn === undefined}
+      <div class="line-placeholder"></div>
+    {:else if handsOn === null}
+      <p class="small muted line">The config file could not be read; edit it on the Rules tab.</p>
+    {:else}
+      <div class="line">
+        <Switch
+          checked={handsOn.hands_on_games}
+          disabled={handsOnBusy}
+          label="Count hands-on gaming time"
+          onchange={(on) =>
+            saveHandsOn(
+              { hands_on_games: on },
+              on ? "Game rules count hands-on time" : "Game rules count the whole time in front",
+            )}
+        />
+      </div>
+      <p class="small muted explain sub">
+        Game rules count only the seconds after a key press, mouse move or controller input, not
+        the whole time a game is in front.
+      </p>
+      <div class="window-row">
+        <label for="input-window">Seconds per input</label>
+        <input
+          id="input-window"
+          class="num window-input"
+          type="number"
+          min={INPUT_WINDOW_MIN}
+          max={INPUT_WINDOW_MAX}
+          step="1"
+          value={handsOn.input_window_s}
+          disabled={handsOnBusy}
+          onchange={(e) => setInputWindow(e.currentTarget)}
+        />
+        <span class="small muted">Takes effect after a restart.</span>
+      </div>
+      <p class="small muted explain">
+        Controllers: XInput on Windows. On Linux only keyboard and mouse count.
+      </p>
     {/if}
   </Card>
 
@@ -504,6 +600,24 @@
     margin: 0;
     display: flex;
     align-items: center;
+  }
+
+  /* ---- Tracking ---- */
+  .explain.sub {
+    margin-top: var(--sp-1);
+    padding-left: 40px;
+  }
+  .window-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2) var(--sp-3);
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--border);
+  }
+  .window-input {
+    width: 80px;
   }
 
   /* ---- Updates ---- */

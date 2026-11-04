@@ -79,12 +79,16 @@ pub struct RuleSnapshot {
     pub break_ms: i64,
     pub snoozes_left: u32,
     pub message: String,
+    /// The policy in effect: the rule's own or its default, after reading mode.
+    pub idle_policy: IdlePolicy,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EngineSnapshot {
     pub at: Timestamp,
     pub reading_mode: bool,
+    /// `tracking.hands_on_games`: Game rules count hands-on time by default.
+    pub hands_on_games: bool,
     pub rules: Vec<RuleSnapshot>,
 }
 
@@ -93,6 +97,7 @@ pub struct Engine {
     rules: RuleSet,
     states: HashMap<String, RuleState>,
     reading_mode: bool,
+    hands_on_games: bool,
     day_start: TimeOfDay,
     last_tick: Option<Timestamp>,
 }
@@ -102,11 +107,17 @@ fn ms(d: Duration) -> i64 {
 }
 
 impl Engine {
-    pub fn new(rules: RuleSet, day_start: TimeOfDay, reading_mode: bool) -> Self {
+    pub fn new(
+        rules: RuleSet,
+        day_start: TimeOfDay,
+        reading_mode: bool,
+        hands_on_games: bool,
+    ) -> Self {
         let mut e = Self {
             rules: RuleSet::default(),
             states: HashMap::new(),
             reading_mode,
+            hands_on_games,
             day_start,
             last_tick: None,
         };
@@ -120,6 +131,26 @@ impl Engine {
 
     pub fn reading_mode(&self) -> bool {
         self.reading_mode
+    }
+
+    pub fn hands_on_games(&self) -> bool {
+        self.hands_on_games
+    }
+
+    /// Switches the default policy of Game rules between `input` and `ignore`.
+    /// Counters are kept.
+    pub fn set_hands_on_games(&mut self, on: bool) {
+        self.hands_on_games = on;
+    }
+
+    /// The policy `rule` counts with right now. Reading mode turns `pause`
+    /// into `ignore` (break timers keep running while reading) but leaves
+    /// `input` alone: game budgets still count only hands-on time.
+    fn effective_policy(&self, rule: &Rule) -> IdlePolicy {
+        match rule.idle_policy(self.hands_on_games) {
+            IdlePolicy::Pause if self.reading_mode => IdlePolicy::Ignore,
+            p => p,
+        }
     }
 
     /// Swaps in a new rule set. Rules that keep their id keep their counters;
@@ -216,6 +247,7 @@ impl Engine {
         let mut out = Vec::new();
 
         for rule in &self.rules.rules {
+            let policy = self.effective_policy(rule);
             let st = self.states.entry(rule.id.clone()).or_default();
             if !rule.enabled {
                 Self::dismiss(
@@ -244,15 +276,13 @@ impl Engine {
                 }
             }
 
-            let policy = if self.reading_mode {
-                IdlePolicy::Ignore
-            } else {
-                rule.idle_policy()
-            };
             let in_scope = rule.scope.matches(activity.app.as_ref());
             let engaged = match activity.kind {
-                Some(SegmentKind::Active) => true,
-                Some(SegmentKind::Idle) => policy == IdlePolicy::Ignore,
+                Some(SegmentKind::Active) => policy != IdlePolicy::Input || activity.hands_on,
+                Some(SegmentKind::Idle) => {
+                    policy == IdlePolicy::Ignore
+                        || (policy == IdlePolicy::Input && activity.hands_on)
+                }
                 _ => false,
             };
             let counting = in_scope && engaged;
@@ -480,12 +510,14 @@ impl Engine {
                         .max_per_day
                         .saturating_sub(st.counters.snoozes_used),
                     message: r.message(),
+                    idle_policy: self.effective_policy(r),
                 }
             })
             .collect();
         EngineSnapshot {
             at: now,
             reading_mode: self.reading_mode,
+            hands_on_games: self.hands_on_games,
             rules,
         }
     }
@@ -531,7 +563,7 @@ mod tests {
 
     #[test]
     fn interval_raises_escalates_and_resets_on_rest() {
-        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false);
+        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false, false);
         let work = act("code.exe", CategoryKind::Work, SegmentKind::Active);
         // 60 s of activity -> raise at t = 60 s (first tick has dt 0).
         let ev = run(&mut e, 0, 61, &work);
@@ -566,7 +598,7 @@ mod tests {
 
     #[test]
     fn snooze_limits_and_skip() {
-        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false);
+        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false, false);
         let work = act("code.exe", CategoryKind::Work, SegmentKind::Active);
         run(&mut e, 0, 61, &work);
         let ev = e.command(
@@ -619,7 +651,7 @@ mod tests {
 
     #[test]
     fn started_break_runs_out() {
-        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false);
+        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false, false);
         let work = act("code.exe", CategoryKind::Work, SegmentKind::Active);
         run(&mut e, 0, 61, &work);
         let ev = e.command(&ControlCommand::StartBreakNow { rule_id: None }, 61_000);
@@ -643,7 +675,7 @@ mod tests {
 
     #[test]
     fn reading_mode_keeps_counting_while_idle() {
-        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, true);
+        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, true, false);
         let idle = act("reader.exe", CategoryKind::Other, SegmentKind::Idle);
         let ev = run(&mut e, 0, 61, &idle);
         assert!(matches!(ev.as_slice(), [NagEvent::Raise { .. }]));
@@ -665,7 +697,7 @@ mod tests {
 
     #[test]
     fn daily_limit_counts_only_scope_and_renags() {
-        let mut e = Engine::new(rules(DAILY), TimeOfDay::MIDNIGHT, false);
+        let mut e = Engine::new(rules(DAILY), TimeOfDay::MIDNIGHT, false, false);
         let game = act("game.exe", CategoryKind::Game, SegmentKind::Active);
         let work = act("code.exe", CategoryKind::Work, SegmentKind::Active);
         assert!(run(&mut e, 0, 100, &work).is_empty());
@@ -701,7 +733,7 @@ mod tests {
             trigger = { kind = "continuous", limit = "20s", reset_after = "5s" }
         "#,
         );
-        let mut e = Engine::new(set, TimeOfDay::MIDNIGHT, false);
+        let mut e = Engine::new(set, TimeOfDay::MIDNIGHT, false, false);
         let game = act("game.exe", CategoryKind::Game, SegmentKind::Active);
         let other = act("x.exe", CategoryKind::Other, SegmentKind::Active);
         run(&mut e, 0, 15, &game);
@@ -724,7 +756,7 @@ mod tests {
             escalation = [ { after = "0s", level = "overlay" } ]
         "#,
         );
-        let mut e = Engine::new(set, TimeOfDay::MIDNIGHT, false);
+        let mut e = Engine::new(set, TimeOfDay::MIDNIGHT, false, false);
         let game = act("game.exe", CategoryKind::Game, SegmentKind::Active);
         let noon = 12 * 3_600_000;
         assert!(run(&mut e, noon, 5, &game).is_empty());
@@ -747,7 +779,7 @@ mod tests {
 
     #[test]
     fn counters_persist_and_reload_dismisses() {
-        let mut e = Engine::new(rules(DAILY), TimeOfDay::MIDNIGHT, false);
+        let mut e = Engine::new(rules(DAILY), TimeOfDay::MIDNIGHT, false, false);
         let game = act("game.exe", CategoryKind::Game, SegmentKind::Active);
         run(&mut e, 0, 31, &game);
         let saved = e.export_counters();
@@ -760,7 +792,7 @@ mod tests {
             }]
         ));
 
-        let mut fresh = Engine::new(rules(DAILY), TimeOfDay::MIDNIGHT, false);
+        let mut fresh = Engine::new(rules(DAILY), TimeOfDay::MIDNIGHT, false, false);
         fresh.import_counters(&saved);
         assert_eq!(fresh.snapshot(0).rules[0].accum_ms, 30_000);
         // Still over the limit after a restart on the same day.
@@ -768,9 +800,103 @@ mod tests {
         assert!(matches!(ev.as_slice(), [NagEvent::Raise { .. }]));
     }
 
+    fn hands(mut a: Activity, on: bool) -> Activity {
+        a.hands_on = on;
+        a
+    }
+
+    const DAILY_LONG: &str = r#"
+        [[rules]]
+        id = "games"
+        scope = { category = "Game" }
+        trigger = { kind = "daily_total", limit = "1h" }
+    "#;
+
+    /// 10 hands-on ticks and 10 without input (half active, half idle).
+    fn mixed_game_ticks(e: &mut Engine) {
+        let game = act("game.exe", CategoryKind::Game, SegmentKind::Active);
+        let pad = act("game.exe", CategoryKind::Game, SegmentKind::Idle);
+        e.tick(0, 0, &hands(game.clone(), true));
+        run(e, 1000, 5, &hands(game.clone(), true));
+        run(e, 6000, 5, &hands(pad.clone(), true));
+        run(e, 11_000, 5, &hands(game, false));
+        run(e, 16_000, 5, &hands(pad, false));
+    }
+
+    #[test]
+    fn game_rules_count_hands_on_time_by_default() {
+        let mut e = Engine::new(rules(DAILY_LONG), TimeOfDay::MIDNIGHT, false, true);
+        mixed_game_ticks(&mut e);
+        let snap = e.snapshot(0);
+        assert!(snap.hands_on_games);
+        assert_eq!(snap.rules[0].idle_policy, IdlePolicy::Input);
+        assert_eq!(snap.rules[0].accum_ms, 10_000);
+    }
+
+    #[test]
+    fn game_rules_count_all_time_in_front_without_hands_on_games() {
+        let mut e = Engine::new(rules(DAILY_LONG), TimeOfDay::MIDNIGHT, false, false);
+        mixed_game_ticks(&mut e);
+        let snap = e.snapshot(0);
+        assert!(!snap.hands_on_games);
+        assert_eq!(snap.rules[0].idle_policy, IdlePolicy::Ignore);
+        assert_eq!(snap.rules[0].accum_ms, 20_000);
+        // The switch applies from the next tick on and keeps the counters.
+        e.set_hands_on_games(true);
+        let game = act("game.exe", CategoryKind::Game, SegmentKind::Active);
+        run(&mut e, 21_000, 5, &hands(game, false));
+        assert_eq!(e.snapshot(0).rules[0].accum_ms, 20_000);
+    }
+
+    const INPUT_INTERVAL: &str = r#"
+        [[rules]]
+        id = "hands"
+        idle_policy = "input"
+        scope = { category = "Work" }
+        trigger = { kind = "interval", every = "60s", break_for = "10s" }
+    "#;
+
+    #[test]
+    fn input_policy_counts_hands_on_and_rests_otherwise() {
+        let mut e = Engine::new(rules(INPUT_INTERVAL), TimeOfDay::MIDNIGHT, false, false);
+        let work = act("code.exe", CategoryKind::Work, SegmentKind::Active);
+        let idle = act("code.exe", CategoryKind::Work, SegmentKind::Idle);
+        e.tick(0, 0, &hands(work.clone(), true));
+        run(&mut e, 1000, 30, &hands(work.clone(), true));
+        assert_eq!(e.snapshot(0).rules[0].accum_ms, 30_000);
+        // Watching without input (active or idle) is rest, not activity.
+        run(&mut e, 31_000, 5, &hands(work.clone(), false));
+        run(&mut e, 36_000, 4, &hands(idle.clone(), false));
+        let snap = e.snapshot(0);
+        assert_eq!(snap.rules[0].accum_ms, 30_000);
+        assert_eq!(snap.rules[0].rest_ms, 9_000);
+        // Idle with recent input (a gamepad, say) still counts.
+        run(&mut e, 40_000, 5, &hands(idle, true));
+        let snap = e.snapshot(0);
+        assert_eq!(snap.rules[0].accum_ms, 35_000);
+        assert_eq!(snap.rules[0].rest_ms, 0);
+        // 10 s without input is a full break.
+        run(&mut e, 45_000, 10, &hands(work, false));
+        assert_eq!(e.snapshot(0).rules[0].accum_ms, 0);
+    }
+
+    #[test]
+    fn reading_mode_leaves_input_rules_alone() {
+        let mut e = Engine::new(rules(INPUT_INTERVAL), TimeOfDay::MIDNIGHT, true, false);
+        let idle = act("code.exe", CategoryKind::Work, SegmentKind::Idle);
+        run(&mut e, 0, 20, &hands(idle, false));
+        let snap = e.snapshot(0);
+        assert_eq!(snap.rules[0].idle_policy, IdlePolicy::Input);
+        assert_eq!(snap.rules[0].accum_ms, 0);
+        assert_eq!(snap.rules[0].rest_ms, 19_000);
+        // A pause rule does turn into ignore.
+        let e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, true, false);
+        assert_eq!(e.snapshot(0).rules[0].idle_policy, IdlePolicy::Ignore);
+    }
+
     #[test]
     fn sleep_gap_counts_as_rest() {
-        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false);
+        let mut e = Engine::new(rules(INTERVAL), TimeOfDay::MIDNIGHT, false, false);
         let work = act("code.exe", CategoryKind::Work, SegmentKind::Active);
         run(&mut e, 0, 30, &work);
         // 1 h later: the gap is rest, so the timer resets.

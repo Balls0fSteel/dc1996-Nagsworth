@@ -10,8 +10,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::StorageError;
 
-static MIGRATIONS: LazyLock<Migrations<'static>> =
-    LazyLock::new(|| Migrations::new(vec![M::up(include_str!("../migrations/001_init.sql"))]));
+static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
+    Migrations::new(vec![
+        M::up(include_str!("../migrations/001_init.sql")),
+        M::up(include_str!("../migrations/002_hands_on.sql")),
+    ])
+});
 
 pub type Result<T> = std::result::Result<T, StorageError>;
 
@@ -86,7 +90,7 @@ impl Db {
         Self::init(Connection::open_in_memory()?)
     }
 
-    fn init(mut conn: Connection) -> Result<Self> {
+    pub(crate) fn init(mut conn: Connection) -> Result<Self> {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
@@ -282,36 +286,55 @@ impl Db {
 
     /// Moves a segment's end forward and adds the growth to the daily totals.
     /// Ends earlier than the current end are ignored.
-    pub fn extend_segment(&mut self, id: i64, end: Timestamp) -> Result<()> {
+    ///
+    /// `input_ms` is the segment's hands-on total so far; its growth against
+    /// the stored value (never negative, never past the segment's length) is
+    /// added to the `input_ms` totals in the same transaction.
+    pub fn extend_segment(&mut self, id: i64, end: Timestamp, input_ms: i64) -> Result<()> {
         let tx = self.conn.transaction()?;
-        let row: Option<(Option<i64>, String, i64, String)> = tx
+        let row: Option<(Option<i64>, String, i64, i64, String, i64)> = tx
             .query_row(
-                "SELECT app_id, kind, end_ts, local_day FROM segments WHERE id = ?1",
+                "SELECT app_id, kind, start_ts, end_ts, local_day, input_ms
+                 FROM segments WHERE id = ?1",
                 [id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                |r| {
+                    Ok((
+                        r.get(0)?,
+                        r.get(1)?,
+                        r.get(2)?,
+                        r.get(3)?,
+                        r.get(4)?,
+                        r.get(5)?,
+                    ))
+                },
             )
             .optional()?;
-        let Some((app_id, kind, old_end, day)) = row else {
+        let Some((app_id, kind, start, old_end, day, old_input)) = row else {
             return Err(StorageError::NotFound("segment"));
         };
         let delta = end - old_end;
         if delta <= 0 {
             return Ok(());
         }
+        let new_input = input_ms.clamp(old_input, (end - start).max(old_input));
+        let input_delta = new_input - old_input;
         tx.execute(
-            "UPDATE segments SET end_ts = ?2 WHERE id = ?1",
-            params![id, end],
+            "UPDATE segments SET end_ts = ?2, input_ms = ?3 WHERE id = ?1",
+            params![id, end, new_input],
         )?;
         tx.execute(
-            "INSERT INTO daily_kind_totals (local_day, kind, ms) VALUES (?1, ?2, ?3)
-             ON CONFLICT (local_day, kind) DO UPDATE SET ms = ms + excluded.ms",
-            params![day, kind, delta],
+            "INSERT INTO daily_kind_totals (local_day, kind, ms, input_ms) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT (local_day, kind) DO UPDATE SET ms = ms + excluded.ms,
+                 input_ms = input_ms + excluded.input_ms",
+            params![day, kind, delta, input_delta],
         )?;
         if let (Some(app_id), "active") = (app_id, kind.as_str()) {
             tx.execute(
-                "INSERT INTO daily_app_totals (local_day, app_id, ms) VALUES (?1, ?2, ?3)
-                 ON CONFLICT (local_day, app_id) DO UPDATE SET ms = ms + excluded.ms",
-                params![day, app_id, delta],
+                "INSERT INTO daily_app_totals (local_day, app_id, ms, input_ms)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT (local_day, app_id) DO UPDATE SET ms = ms + excluded.ms,
+                     input_ms = input_ms + excluded.input_ms",
+                params![day, app_id, delta, input_delta],
             )?;
         }
         tx.commit()?;

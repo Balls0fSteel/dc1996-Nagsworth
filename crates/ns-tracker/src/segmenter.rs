@@ -14,6 +14,9 @@
 //!   `suspended` segment (sleep, hibernate, a stalled process).
 //! - Segments are split at the local day start so each belongs to one day.
 //! - The open segment is written to storage at least every `flush_ms`.
+//! - Hands-on time: a sample whose `idle_ms` is within `input_window_ms`
+//!   credits the time since the previous sample (capped like the gap rule)
+//!   to the active segment that covers it, never more than its length.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -40,6 +43,8 @@ pub struct SegmenterConfig {
     pub day_start: TimeOfDay,
     pub gap_ms: u64,
     pub flush_ms: u64,
+    /// How long one input counts as hands-on; 0 disables hands-on time.
+    pub input_window_ms: u64,
 }
 
 impl SegmenterConfig {
@@ -50,6 +55,7 @@ impl SegmenterConfig {
             min_segment_ms: c.tracking.min_segment_ms,
             store_titles: c.tracking.store_titles == StoreTitles::Full,
             day_start: c.general.day_start,
+            input_window_ms: c.tracking.input_window_ms(),
             ..Self::default()
         }
     }
@@ -65,6 +71,7 @@ impl Default for SegmenterConfig {
             day_start: TimeOfDay::new(4, 0).expect("valid time"),
             gap_ms: 5000,
             flush_ms: 10_000,
+            input_window_ms: 5000,
         }
     }
 }
@@ -78,6 +85,8 @@ pub struct SegKey {
     pub title: Option<String>,
 }
 
+/// What the segmenter wants storage to do. `Open` starts with no
+/// hands-on time; `Extend` and `Close` carry the segment's total so far.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
     Open {
@@ -89,9 +98,11 @@ pub enum Action {
     },
     Extend {
         end: Timestamp,
+        input_ms: i64,
     },
     Close {
         end: Timestamp,
+        input_ms: i64,
     },
 }
 
@@ -108,13 +119,33 @@ struct Current {
     start: Timestamp,
     end: Timestamp,
     day: LocalDay,
+    input_ms: i64,
+}
+
+impl Current {
+    /// Adds hands-on time; only active segments accrue, and never past
+    /// their length.
+    fn add_input(&mut self, ms: i64) {
+        if self.key.kind == SegmentKind::Active {
+            self.input_ms = (self.input_ms + ms.max(0)).min(self.end - self.start);
+        }
+    }
+}
+
+/// A window switch waiting out `min_segment_ms`. Hands-on time during the
+/// wait goes to whichever segment ends up owning that time.
+#[derive(Clone, Debug)]
+struct Pending {
+    observed: Observed,
+    since: Timestamp,
+    input_ms: i64,
 }
 
 #[derive(Debug)]
 pub struct Segmenter {
     cfg: SegmenterConfig,
     current: Option<Current>,
-    pending: Option<(Observed, Timestamp)>,
+    pending: Option<Pending>,
     last_ts: Option<Timestamp>,
     last_flush: Timestamp,
     paused: bool,
@@ -152,6 +183,11 @@ impl Segmenter {
                 SessionState::Active => SegmentKind::Active,
             }
         }
+    }
+
+    /// Whether a sample shows input within the hands-on window.
+    pub fn input_recent(&self, s: &Sample) -> bool {
+        self.cfg.input_window_ms > 0 && s.idle_ms <= self.cfg.input_window_ms
     }
 
     fn observe(&self, s: &Sample) -> Observed {
@@ -192,27 +228,42 @@ impl Segmenter {
             start,
             end: start,
             day,
+            input_ms: 0,
         });
         self.last_flush = start;
     }
 
+    /// Closes the open segment at `end`. A pending switch is dropped; the
+    /// part of its hands-on time that falls inside the closed segment
+    /// (between the segment's last end and `end`) stays with it.
     fn close(&mut self, end: Timestamp, out: &mut Vec<Action>) {
-        if let Some(c) = self.current.take() {
+        let pending = self.pending.take().map_or(0, |p| p.input_ms);
+        if let Some(mut c) = self.current.take() {
+            let end = end.max(c.start);
+            let carried = pending.min((end - c.end).max(0));
+            c.end = c.end.max(end);
+            c.add_input(carried);
             out.push(Action::Close {
-                end: end.max(c.start),
+                end,
+                input_ms: c.input_ms.min(end - c.start),
             });
         }
-        self.pending = None;
     }
 
     /// Feeds one sample; `offset_s` is the local UTC offset at the sample.
     pub fn on_sample(&mut self, s: &Sample, offset_s: i32) -> Vec<Action> {
         let mut out = Vec::new();
         let observed = self.observe(s);
+        let max_dt = (self.cfg.poll_ms + self.cfg.gap_ms) as i64;
+        // Hands-on time this sample stands for: the time since the previous one.
+        let mut credit = match self.last_ts {
+            Some(last) if self.input_recent(s) => (s.ts - last).clamp(0, max_dt),
+            _ => 0,
+        };
 
         // Clock jump: the machine slept or the process stalled.
         if let Some(last) = self.last_ts
-            && s.ts - last > (self.cfg.poll_ms + self.cfg.gap_ms) as i64
+            && s.ts - last > max_dt
         {
             self.close(last, &mut out);
             let gap = Observed {
@@ -228,72 +279,100 @@ impl Segmenter {
         }
         self.last_ts = Some(s.ts);
 
-        // Day boundary: split the open segment at the new day's start.
-        if let Some(c) = &self.current {
-            let today = self.day(s.ts, offset_s);
-            if today != c.day {
-                let boundary = today.start_ts(offset_s, self.cfg.day_start).max(c.start);
-                let carry = Observed {
-                    key: c.key.clone(),
-                    process: c.process.clone(),
-                };
-                self.close(boundary, &mut out);
-                self.open(carry, boundary, offset_s, &mut out);
-            }
+        // Day boundary: split the open segment at the new day's start. The
+        // new segment starts without hands-on time; the part of this
+        // sample's credit before the boundary stays with the old one.
+        let today = self.day(s.ts, offset_s);
+        if let Some(c) = &mut self.current
+            && today != c.day
+        {
+            let boundary = today.start_ts(offset_s, self.cfg.day_start).max(c.start);
+            let before = credit.min((boundary - c.end).max(0));
+            c.end = c.end.max(boundary);
+            c.add_input(before);
+            credit -= before;
+            let carry = Observed {
+                key: c.key.clone(),
+                process: c.process.clone(),
+            };
+            self.close(boundary, &mut out);
+            self.open(carry, boundary, offset_s, &mut out);
         }
 
         let Some(cur) = &self.current else {
+            // A new segment has no length yet, so there is nothing to credit.
             self.open(observed, s.ts, offset_s, &mut out);
             return out;
         };
 
         if observed.key == cur.key {
-            self.pending = None;
-        } else {
-            let from = cur.key.kind;
-            let to = observed.key.kind;
-            if to == SegmentKind::Idle && from != SegmentKind::Idle {
-                // Backdate to the last input, but not before the segment began.
-                let at = (s.ts - s.idle_ms as i64).max(cur.start);
-                self.close(at, &mut out);
-                self.open(observed, at, offset_s, &mut out);
-                return out;
-            }
-            if from != SegmentKind::Active || to != SegmentKind::Active {
-                self.close(s.ts, &mut out);
-                self.open(observed, s.ts, offset_s, &mut out);
-                return out;
-            }
-            // Active window switch: debounce.
-            match &self.pending {
-                Some((p, since)) if p.key == observed.key => {
-                    let since = *since;
-                    if s.ts - since >= self.cfg.min_segment_ms as i64 {
-                        self.close(since, &mut out);
-                        self.open(observed, since, offset_s, &mut out);
-                        // Time since the switch already belongs to the new segment.
-                        self.extend_to(s.ts, &mut out);
-                        return out;
-                    }
-                }
-                _ => self.pending = Some((observed, s.ts)),
-            }
+            // A flap (if any) is merged back, with its hands-on time.
+            let flap = self.pending.take().map_or(0, |p| p.input_ms);
+            self.extend_to(s.ts, flap + credit, &mut out);
+            return out;
         }
 
-        let end = self
-            .pending
-            .as_ref()
-            .map(|(_, since)| *since)
-            .unwrap_or(s.ts);
-        self.extend_to(end, &mut out);
+        let from = cur.key.kind;
+        let to = observed.key.kind;
+        if to == SegmentKind::Idle && from != SegmentKind::Idle {
+            // Backdate to the last input, but not before the segment began.
+            let at = (s.ts - s.idle_ms as i64).max(cur.start);
+            self.close(at, &mut out);
+            self.open(observed, at, offset_s, &mut out);
+            return out;
+        }
+        if from != SegmentKind::Active || to != SegmentKind::Active {
+            // The time up to this sample (a flap included) still belongs to
+            // the old segment.
+            let flap = self.pending.take().map_or(0, |p| p.input_ms);
+            self.extend_to(s.ts, flap + credit, &mut out);
+            self.close(s.ts, &mut out);
+            self.open(observed, s.ts, offset_s, &mut out);
+            return out;
+        }
+
+        // Active window switch: debounce.
+        match &mut self.pending {
+            Some(p) if p.observed.key == observed.key => {
+                let since = p.since;
+                if s.ts - since >= self.cfg.min_segment_ms as i64 {
+                    let waited = self.pending.take().map_or(0, |p| p.input_ms);
+                    self.close(since, &mut out);
+                    self.open(observed, since, offset_s, &mut out);
+                    // Time since the switch already belongs to the new segment.
+                    self.extend_to(s.ts, waited + credit, &mut out);
+                } else {
+                    p.input_ms = (p.input_ms + credit).min(s.ts - since);
+                    self.extend_to(since, 0, &mut out);
+                }
+            }
+            _ => {
+                // A new candidate; an older one (if any) is merged back.
+                let flap = self
+                    .pending
+                    .replace(Pending {
+                        observed,
+                        since: s.ts,
+                        input_ms: 0,
+                    })
+                    .map_or(0, |p| p.input_ms);
+                self.extend_to(s.ts, flap + credit, &mut out);
+            }
+        }
         out
     }
 
-    fn extend_to(&mut self, end: Timestamp, out: &mut Vec<Action>) {
+    /// Moves the open segment's end to `end`, credits `input_ms` hands-on
+    /// time to it and flushes it every `flush_ms`.
+    fn extend_to(&mut self, end: Timestamp, input_ms: i64, out: &mut Vec<Action>) {
         if let Some(c) = &mut self.current {
             c.end = c.end.max(end);
+            c.add_input(input_ms);
             if c.end - self.last_flush >= self.cfg.flush_ms as i64 {
-                out.push(Action::Extend { end: c.end });
+                out.push(Action::Extend {
+                    end: c.end,
+                    input_ms: c.input_ms,
+                });
                 self.last_flush = c.end;
             }
         }
@@ -383,7 +462,8 @@ impl SegmenterTask {
                         title,
                         idle_ms: sample.idle_ms,
                         is_fullscreen: sample.fg.as_ref().is_some_and(|w| w.is_fullscreen),
-                        hands_on: false,
+                        hands_on: self.segmenter.input_recent(&sample)
+                            && matches!(kind, SegmentKind::Active | SegmentKind::Idle),
                     });
                 }
                 event = control.recv() => {
@@ -512,16 +592,18 @@ impl SegmenterTask {
                     }
                 }
             }
-            Action::Extend { end } => {
+            Action::Extend { end, input_ms } => {
                 if let Some(id) = *current_id {
-                    self.storage.send(move |db| db.extend_segment(id, end));
+                    self.storage
+                        .send(move |db| db.extend_segment(id, end, input_ms));
                     self.bus
                         .publish(Event::Tracker(TrackerEvent::SegmentTick { id, end }));
                 }
             }
-            Action::Close { end } => {
+            Action::Close { end, input_ms } => {
                 if let Some(id) = current_id.take() {
-                    self.storage.send(move |db| db.extend_segment(id, end));
+                    self.storage
+                        .send(move |db| db.extend_segment(id, end, input_ms));
                     self.bus
                         .publish(Event::Tracker(TrackerEvent::SegmentClosed { id, end }));
                 }
@@ -591,7 +673,13 @@ mod tests {
         assert_eq!(o.len(), 2, "{actions:?}");
         assert_eq!(o[0], (SegmentKind::Active, Some("a.exe".into()), 0));
         assert_eq!(o[1], (SegmentKind::Active, Some("b.exe".into()), 1000));
-        assert_eq!(actions.last(), Some(&Action::Close { end: 2000 }));
+        assert_eq!(
+            actions.last(),
+            Some(&Action::Close {
+                end: 2000,
+                input_ms: 1000
+            })
+        );
     }
 
     #[test]
@@ -611,7 +699,11 @@ mod tests {
         let o = opens(&actions);
         assert_eq!(o.len(), 2, "{actions:?}");
         assert_eq!(o[1], (SegmentKind::Active, Some("c.exe".into()), 3000));
-        assert!(actions.contains(&Action::Close { end: 3000 }));
+        // The flap and the time up to the switch stay with a.exe.
+        assert!(actions.contains(&Action::Close {
+            end: 3000,
+            input_ms: 3000
+        }));
     }
 
     #[test]
@@ -653,7 +745,10 @@ mod tests {
         let o = opens(&actions);
         assert_eq!(o.len(), 2);
         assert_eq!(o[1].2, day_ms);
-        assert!(actions.contains(&Action::Close { end: day_ms }));
+        assert!(actions.contains(&Action::Close {
+            end: day_ms,
+            input_ms: 5000
+        }));
         assert!(actions.iter().any(|a| matches!(a, Action::Extend { .. })));
     }
 
@@ -674,6 +769,105 @@ mod tests {
                 SegmentKind::Paused
             ]
         );
+    }
+
+    fn closes(actions: &[Action]) -> Vec<(Timestamp, i64)> {
+        actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Close { end, input_ms } => Some((*end, *input_ms)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// 1 s samples at ts 0..=9000 with idle_ms = ts.
+    fn rising_idle() -> Vec<Sample> {
+        (0..10)
+            .map(|i| sample(i * 1000, w("game.exe"), i as u64 * 1000))
+            .collect()
+    }
+
+    #[test]
+    fn hands_on_follows_the_input_window() {
+        let mut seg = Segmenter::new(SegmenterConfig {
+            input_window_ms: 5000,
+            ..cfg()
+        });
+        let mut actions = run(&mut seg, &rising_idle());
+        actions.extend(seg.finish());
+        // The first sample has no predecessor; samples at idle 1000..=5000
+        // each credit the 1 s since the previous one.
+        assert_eq!(closes(&actions), [(9000, 5000)]);
+    }
+
+    #[test]
+    fn zero_window_credits_nothing() {
+        let mut seg = Segmenter::new(SegmenterConfig {
+            input_window_ms: 0,
+            ..cfg()
+        });
+        let samples: Vec<_> = (0..10).map(|i| sample(i * 1000, w("a.exe"), 0)).collect();
+        let mut actions = run(&mut seg, &samples);
+        actions.extend(seg.finish());
+        assert_eq!(closes(&actions), [(9000, 0)]);
+    }
+
+    #[test]
+    fn idle_segments_credit_nothing() {
+        let mut seg = Segmenter::new(SegmenterConfig {
+            idle_after_ms: 3000,
+            input_window_ms: 5000,
+            ..cfg()
+        });
+        // Input until ts 2000, then none: idle_ms = ts - 2000.
+        let samples: Vec<_> = (0..10)
+            .map(|i| {
+                let ts = i * 1000;
+                sample(ts, w("a.exe"), (ts - 2000).max(0) as u64)
+            })
+            .collect();
+        let mut actions = run(&mut seg, &samples);
+        actions.extend(seg.finish());
+        let o = opens(&actions);
+        assert_eq!(o[1], (SegmentKind::Idle, None, 2000));
+        // The active part is clamped to its backdated length; the idle part
+        // (idle_ms 3000..=5000 is within the window) gets nothing.
+        assert_eq!(closes(&actions), [(2000, 2000), (9000, 0)]);
+    }
+
+    #[test]
+    fn day_split_starts_hands_on_at_zero() {
+        let mut seg = Segmenter::new(cfg());
+        let day_ms = 86_400_000;
+        let samples: Vec<_> = [-2500, -1500, -500, 500, 1500]
+            .into_iter()
+            .map(|d| sample(day_ms + d, w("a.exe"), 0))
+            .collect();
+        let mut actions = run(&mut seg, &samples);
+        actions.extend(seg.finish());
+        // The sample at +500 splits its 1 s: 500 ms to each day.
+        assert_eq!(closes(&actions), [(day_ms, 2500), (day_ms + 1500, 1500)]);
+    }
+
+    #[test]
+    fn debounced_switch_keeps_its_hands_on_time() {
+        let mut seg = Segmenter::new(cfg()); // min_segment_ms 2000
+        let mut actions = run(
+            &mut seg,
+            &[
+                sample(0, w("a.exe"), 0),
+                sample(1000, w("a.exe"), 0),
+                sample(2000, w("b.exe"), 0),
+                sample(3000, w("b.exe"), 0),
+                sample(4000, w("b.exe"), 0),
+                sample(5000, w("b.exe"), 0),
+            ],
+        );
+        actions.extend(seg.finish());
+        assert_eq!(opens(&actions)[1].2, 2000);
+        // b.exe owns 2000..5000, including the 2 s it waited out.
+        assert_eq!(closes(&actions), [(2000, 2000), (5000, 3000)]);
     }
 
     #[tokio::test]
@@ -701,7 +895,9 @@ mod tests {
             sample(0, w("code.exe"), 0),
             sample(1000, w("code.exe"), 0),
             sample(2000, w("game.exe"), 0),
-            sample(3000, w("game.exe"), 0),
+            // Hands off: 7 s since the last input, past the 5 s window.
+            sample(3000, w("game.exe"), 7000),
+            sample(4000, w("game.exe"), 0),
         ] {
             tx.send(s).await.unwrap();
         }
@@ -711,15 +907,19 @@ mod tests {
             activity_rx.borrow().app.as_ref().unwrap().exe_name,
             "game.exe"
         );
+        assert!(activity_rx.borrow().hands_on);
         let day = LocalDay::from_ts(0, 0, TimeOfDay::MIDNIGHT);
         let usage = storage
             .call(move |db| db.usage_by_app(day, day))
             .await
             .unwrap();
         assert_eq!(usage.len(), 2);
-        assert_eq!(usage.iter().map(|u| u.ms).sum::<i64>(), 3000);
+        assert_eq!(usage.iter().map(|u| u.ms).sum::<i64>(), 4000);
         let code = usage.iter().find(|u| u.exe_name == "code.exe").unwrap();
         assert_eq!(code.category_kind, ns_core::CategoryKind::Work);
+        assert_eq!((code.ms, code.input_ms), (2000, 2000));
+        let game = usage.iter().find(|u| u.exe_name == "game.exe").unwrap();
+        assert_eq!((game.ms, game.input_ms), (2000, 1000));
         let mut opened = 0;
         while let Ok(e) = events.try_recv() {
             if matches!(e, Event::Tracker(TrackerEvent::SegmentOpened { .. })) {

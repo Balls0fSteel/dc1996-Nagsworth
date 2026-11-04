@@ -94,6 +94,8 @@ def main() -> None:
         if day == today:
             end_of_day = min(end_of_day, now)
         app_tot: dict[int, int] = {}
+        app_input: dict[int, int] = {}
+        kind_input: dict[str, int] = {}
         kind_tot: dict[str, int] = {}
         web_tot: dict[str, int] = {}
         while t < end_of_day:
@@ -116,12 +118,17 @@ def main() -> None:
             length = ms(t_end) - ms(t)
             if kind == "active":
                 aid = app_ids[app[0]]
+                # Hands-on time: games have cutscenes and chat, work is mostly typing.
+                share = rng.uniform(0.45, 0.75) if app[2] == "Game" else rng.uniform(0.8, 0.98)
+                input_ms = int(length * share)
                 cur.execute(
-                    "INSERT INTO segments (app_id, title_id, kind, start_ts, end_ts, local_day)"
-                    " VALUES (?, ?, 'active', ?, ?, ?)",
-                    (aid, title_id(rng.choice(app[5])), ms(t), ms(t_end), day),
+                    "INSERT INTO segments (app_id, title_id, kind, start_ts, end_ts, local_day, input_ms)"
+                    " VALUES (?, ?, 'active', ?, ?, ?, ?)",
+                    (aid, title_id(rng.choice(app[5])), ms(t), ms(t_end), day, input_ms),
                 )
                 app_tot[aid] = app_tot.get(aid, 0) + length
+                app_input[aid] = app_input.get(aid, 0) + input_ms
+                kind_input["active"] = kind_input.get("active", 0) + input_ms
                 if app[2] == "Web":
                     host = rng.choice(HOSTS)
                     cur.execute(
@@ -139,9 +146,15 @@ def main() -> None:
             kind_tot[kind] = kind_tot.get(kind, 0) + length
             t = t_end
         for aid, total in app_tot.items():
-            cur.execute("INSERT INTO daily_app_totals (local_day, app_id, ms) VALUES (?, ?, ?)", (day, aid, total))
+            cur.execute(
+                "INSERT INTO daily_app_totals (local_day, app_id, ms, input_ms) VALUES (?, ?, ?, ?)",
+                (day, aid, total, app_input.get(aid, 0)),
+            )
         for kind, total in kind_tot.items():
-            cur.execute("INSERT INTO daily_kind_totals (local_day, kind, ms) VALUES (?, ?, ?)", (day, kind, total))
+            cur.execute(
+                "INSERT INTO daily_kind_totals (local_day, kind, ms, input_ms) VALUES (?, ?, ?, ?)",
+                (day, kind, total, kind_input.get(kind, 0)),
+            )
         for host, total in web_tot.items():
             cur.execute("INSERT INTO daily_web_totals (local_day, host, ms) VALUES (?, ?, ?)", (day, host, total))
 

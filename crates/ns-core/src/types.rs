@@ -59,7 +59,8 @@ pub enum SessionState {
 pub struct Sample {
     pub ts: Timestamp,
     pub fg: Option<WindowInfo>,
-    /// Time since the last keyboard or mouse input.
+    /// Time since the last input on any device: keyboard, mouse or, where
+    /// the platform polls them, a game controller.
     pub idle_ms: u64,
     pub session: SessionState,
 }

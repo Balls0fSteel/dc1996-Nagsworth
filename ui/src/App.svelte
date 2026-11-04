@@ -131,6 +131,12 @@
     const a = snap.activity;
     switch (a.kind) {
       case "active":
+        // Games: hands-on (input within the last few seconds) vs only in front.
+        if (a.app?.is_game) {
+          return a.hands_on
+            ? { tone: "active", text: `Playing ${a.app.exe_name}`, title: a.title ?? undefined }
+            : { tone: "idle", text: `In front: ${a.app.exe_name}`, title: a.title ?? undefined };
+        }
         return a.app
           ? { tone: "active", text: `Active in ${a.app.exe_name}`, title: a.title ?? undefined }
           : { tone: "active", text: "Active" };

@@ -1,6 +1,6 @@
 # Nagsworth: plan
 
-Last updated: 2026-11-04_102439_1793784279
+Last updated: 2026-11-04_104856_1793785736
 
 Name: **Nagsworth** (chosen 2026-11-04, D9): a polite butler who keeps a note
 of your hours and clears his throat when a break is due. Identifiers use
@@ -173,7 +173,6 @@ id = "gaming-daily"
 name = "Gaming limit"
 scope = { category = "Game" }
 trigger = { kind = "daily_total", limit = "2h", renag_every = "15m" }
-idle_policy = "ignore"
 escalation = [ { after = "0s", level = "toast" }, { after = "10m", level = "overlay" } ]
 
 [[rules]]
@@ -296,9 +295,32 @@ side (the workflow's runner test runs only on a tag), and "Download update"
 / "Install and restart" on an installed copy have not been clicked by hand
 (docs/MANUAL_CHECKS.md "Update check").
 
+## Hands-on time (2026-11-04_104856_1793785736)
+
+Done, see docs/HANDS_ON_TIME.md (D24): gaming limits count only the
+`input_window_s` (5 s) after each keyboard, mouse or XInput controller
+input, while "in front" time stays recorded next to it. Pieces: XInput poll
+in `ns-platform` (dead zones, empty slots re-probed every 3 s, folded into
+`Sample.idle_ms`), `input_ms` on segments and daily totals (migration 002),
+the segmenter's per-sample credit, `idle_policy = "input"` and the
+`hands_on_games` default for Game rules in the engine, `input_ms` on every
+stats row and the CSV export, `Activity.hands_on` in `/state`, the Settings
+> Tracking card (edits `[tracking]` in the config text), the Game tile and
+the "Hands-on" apps column on Today, "Playing" / "In front" in the status
+block. Verified: 92 tests, clippy, fmt, ui:check, the Linux cross-check;
+the built app run hidden migrated a fresh database to version 2
+(`segments.input_ms` present). Not verified: the API fields on the running
+binary (the owner's own Nagsworth was running and holds the single-instance
+mutex, so the test copy exits after a second; the fields are covered by the
+ns-api and ns-storage tests) and a real controller (docs/MANUAL_CHECKS.md
+"Hands-on gaming time"). Open: Linux gamepads (evdev), raw HID pads on
+Windows, a hands-on series on History, `input_window_s` needs a restart
+(the segmenter reads it once), a UI control for `tracking.gamepad`.
+
 ## Next steps
 
-0. Run the checks in docs/MANUAL_CHECKS.md.
+0. Run the checks in docs/MANUAL_CHECKS.md, first "Hands-on gaming time"
+   with a controller.
 1. Use it for a few days: load the extension, pair it, tune
    `min_segment_ms`, `idle_after_s` and the rules.
 2. CI is green on GitHub. Move `actions/checkout` and `actions/setup-node`
@@ -320,8 +342,10 @@ side (the workflow's runner test runs only on a tag), and "Download update"
   then `exe_name = "<elevated>"`. UWP apps show as `ApplicationFrameHost.exe`;
   resolve via child windows of another PID + `GetApplicationUserModelId`.
   Cache `ProcessInfo` by (pid, create_time).
-- **Idle and gamepads**: `GetLastInputInfo` ignores XInput; mitigated by
-  `idle_policy = ignore` for games, later an optional `XInputGetState` poll.
+- **Idle and gamepads**: `GetLastInputInfo` ignores XInput, so the sampler
+  also polls `XInputGetState` (D24); pads that are not XInput (DualShock
+  over plain HID, Linux) still look idle, and a Game rule set to
+  `idle_policy = "ignore"` keeps the old behaviour.
 - **Overlays vs exclusive fullscreen**: always-on-top windows cannot cover
   exclusive-fullscreen D3D. Implemented: `SHQueryUserNotificationState`
   defers overlays with a beep and a tray tooltip until the game leaves

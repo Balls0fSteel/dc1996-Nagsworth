@@ -108,6 +108,9 @@ async fn health_is_public_state_is_not() {
     let (s, body) = send(&f.app, get("/v1/state", Some(&f.token))).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(body["tracking_paused"], false);
+    // Hands-on time: the activity flag and the engine's game default.
+    assert!(body["activity"]["hands_on"].is_boolean(), "{body}");
+    assert!(body["engine"]["hands_on_games"].is_boolean(), "{body}");
 }
 
 #[tokio::test]

@@ -424,7 +424,7 @@ async fn export(
         .await?;
     let disposition = |ext: &str| format!("attachment; filename=\"activity-{from}-{to}.{ext}\"");
     if q.format == ExportFormat::Csv {
-        let mut out = String::from("day,start,end,kind,exe,display_name,category,title\n");
+        let mut out = String::from("day,start,end,kind,exe,display_name,category,title,input_ms\n");
         for r in &segments {
             let cols = [
                 r.day.to_string(),
@@ -435,6 +435,7 @@ async fn export(
                 r.display_name.clone().unwrap_or_default(),
                 r.category.clone().unwrap_or_default(),
                 r.title.clone().unwrap_or_default(),
+                r.input_ms.to_string(),
             ];
             let line: Vec<String> = cols.iter().map(|c| csv_field(c)).collect();
             out.push_str(&line.join(","));

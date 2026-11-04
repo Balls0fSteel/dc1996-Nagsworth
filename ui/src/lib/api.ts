@@ -22,6 +22,8 @@ export interface Activity {
   title: string | null;
   idle_ms: number;
   is_fullscreen: boolean;
+  /** Input within the last `input_window_s` (hands-on time). */
+  hands_on: boolean;
 }
 
 export type NagState =
@@ -44,6 +46,8 @@ export interface RuleSnapshot {
   break_ms: number;
   snoozes_left: number;
   message: string;
+  /** The effective idle policy (the default resolved). */
+  idle_policy: IdlePolicy;
 }
 
 export interface ExtClient {
@@ -57,7 +61,7 @@ export interface StateResponse {
   today: string;
   activity: Activity;
   tracking_paused: boolean;
-  engine: { at: number; reading_mode: boolean; rules: RuleSnapshot[] };
+  engine: { at: number; reading_mode: boolean; hands_on_games: boolean; rules: RuleSnapshot[] };
   extensions: [string, ExtClient][];
 }
 
@@ -69,6 +73,7 @@ export interface AppUsage {
   category_kind: CategoryKind;
   is_game: boolean;
   ms: number;
+  input_ms: number;
 }
 
 export interface CategoryUsage {
@@ -77,6 +82,7 @@ export interface CategoryUsage {
   kind: CategoryKind;
   color: string | null;
   ms: number;
+  input_ms: number;
 }
 
 export interface DailyUsage {
@@ -85,6 +91,7 @@ export interface DailyUsage {
   kind: CategoryKind;
   color: string | null;
   ms: number;
+  input_ms: number;
 }
 
 export interface TimelineEntry {
@@ -96,6 +103,8 @@ export interface TimelineEntry {
   exe_name: string | null;
   title: string | null;
   category_kind: CategoryKind | null;
+  /** Hands-on milliseconds within the segment. */
+  input_ms: number;
 }
 
 export interface HostUsage {
@@ -147,7 +156,8 @@ export type TriggerDef =
 /** `Scope`: the string "any", `{ category }` or `{ app }` (an exe name). */
 export type ScopeDef = "any" | { category: CategoryKind } | { app: string };
 
-export type IdlePolicy = "pause" | "ignore";
+/** `input` counts only hands-on time (seconds after an input). */
+export type IdlePolicy = "pause" | "ignore" | "input";
 
 export interface EscalationStep {
   after: HumanDuration;
@@ -166,7 +176,7 @@ export interface RuleDef {
   enabled: boolean;
   scope: ScopeDef;
   trigger: TriggerDef;
-  /** `null` means the default: `ignore` for the Game category, `pause` otherwise. */
+  /** `null` means the default: for the Game category `input` when `[tracking] hands_on_games` is on, else `ignore`; `pause` otherwise. */
   idle_policy: IdlePolicy | null;
   escalation: EscalationStep[];
   /** `null` means the default: 5m, 3 per day. */
@@ -192,6 +202,7 @@ export interface KindTotal {
   day: string;
   kind: SegmentKind;
   ms: number;
+  input_ms: number;
 }
 
 export interface ApiInfo {

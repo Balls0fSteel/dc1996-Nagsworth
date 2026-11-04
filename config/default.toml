@@ -69,7 +69,7 @@ id = "gaming-daily"
 name = "Gaming limit"
 scope = { category = "Game" }
 trigger = { kind = "daily_total", limit = "2h", renag_every = "15m" }
-idle_policy = "ignore"
+# idle_policy is left out: "input" (hands-on time) while hands_on_games is on.
 escalation = [ { after = "0s", level = "toast" }, { after = "10m", level = "overlay" } ]
 
 [[rules]]

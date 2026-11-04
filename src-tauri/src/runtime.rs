@@ -50,9 +50,16 @@ impl FileConfigStore {
     fn apply(&self, text: &str) -> Result<(), String> {
         let cfg = Config::from_toml(text).map_err(|e| e.to_string())?;
         let rules = RuleSet::from_toml(text).map_err(|e| e.to_string())?;
+        // `tracking.hands_on_games` (the Settings switch) applies at once.
+        // `tracking.input_window_s` does not: the segmenter reads it at start,
+        // so changing it needs a restart (the Settings page says so).
+        let hands_on_games = cfg.tracking.hands_on_games;
         *self.config.write().unwrap() = cfg;
         self.engine_cmd
             .try_send(EngineCommand::ReplaceRules(rules))
+            .map_err(|e| format!("engine not running: {e}"))?;
+        self.engine_cmd
+            .try_send(EngineCommand::SetHandsOnGames(hands_on_games))
             .map_err(|e| format!("engine not running: {e}"))
     }
 
@@ -95,6 +102,7 @@ impl Runtime {
             }
         };
         let cfg = loaded.config;
+        platform.set_gamepad_polling(cfg.tracking.gamepad);
         let storage = StorageHandle::open(&data_dir.join("activity.db"))?;
         let token = match storage.call_blocking(|db| db.kv_get(ns_api::auth::TOKEN_KEY))? {
             Some(t) => t,
@@ -178,7 +186,12 @@ impl Runtime {
         );
 
         // Rules engine.
-        let mut engine = Engine::new(rules, cfg.general.day_start, reading_mode);
+        let mut engine = Engine::new(
+            rules,
+            cfg.general.day_start,
+            reading_mode,
+            cfg.tracking.hands_on_games,
+        );
         engine.import_counters(&saved_counters);
         let (snap_tx, snap_rx) = watch::channel(engine.snapshot(clock.now()));
         let (engine_cmd, engine_cmd_rx) = mpsc::channel(8);

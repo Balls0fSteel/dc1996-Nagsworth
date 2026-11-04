@@ -228,13 +228,19 @@ mod tests {
 
     #[test]
     fn input_window_is_clamped() {
-        let c = Config::from_toml("[tracking]
+        let c = Config::from_toml(
+            "[tracking]
 input_window_s = 100000
-").unwrap();
+",
+        )
+        .unwrap();
         assert_eq!(c.tracking.input_window_ms(), MAX_INPUT_WINDOW_S * 1000);
-        let c = Config::from_toml("[tracking]
+        let c = Config::from_toml(
+            "[tracking]
 input_window_s = 0
-").unwrap();
+",
+        )
+        .unwrap();
         assert_eq!(c.tracking.input_window_ms(), 0);
     }
 

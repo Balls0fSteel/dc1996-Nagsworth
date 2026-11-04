@@ -2,6 +2,55 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-04_104856_1793785736: Hands-on time, input-gated gaming limits
+
+- Design in docs/HANDS_ON_TIME.md (D24): a gaming limit should protect
+  hands, so it counts only the `tracking.input_window_s` (5 s) after each
+  key press, mouse move or controller input; the time a game is merely in
+  front is still recorded and shown next to it.
+- `ns-platform`: `Platform::gamepad_idle_time` and `set_gamepad_polling`
+  (`tracking.gamepad`); Windows polls `XInputGetState` on the four slots
+  with the documented dead zones (left 7849, right 8689, trigger 30) and
+  re-probes empty slots every 3 s; a change counts as input and
+  `Sample.idle_ms` becomes the smaller of keyboard/mouse and pad idle, so
+  controller players no longer show as idle. `Caps.gamepad`. Linux: none
+  yet.
+- `ns-core`: `tracking.input_window_s` (clamped to 600), `hands_on_games`,
+  `gamepad`; `Activity.hands_on`.
+- `ns-tracker`: the segmenter credits each sample within the window to the
+  active segment (`input_ms`, never past the segment's length, split at
+  day boundaries, kept through debounced switches); `Action::Extend/Close`
+  carry it; `Activity.hands_on` set per sample.
+- `ns-storage`: migration `002_hands_on.sql` (`input_ms` on `segments`,
+  `daily_app_totals`, `daily_kind_totals`), `extend_segment(id, end,
+  input_ms)` keeps the totals in the same transaction, `input_ms` on every
+  stats struct, `category_kind_input_ms`.
+- `ns-rules`: `IdlePolicy::Input`; `Rule::idle_policy(hands_on_games)`
+  defaults Game rules to `input` while the toggle is on; the engine counts
+  `input` rules only while `activity.hands_on` (reading mode now only turns
+  `pause` into `ignore`); `EngineCommand::SetHandsOnGames`; the snapshot
+  carries `hands_on_games` and each rule's effective `idle_policy`.
+- `ns-api`: `/state` shows `activity.hands_on` and `engine.hands_on_games`;
+  the CSV export ends in an `input_ms` column.
+- Runtime: the engine starts with the config's toggle and follows config
+  saves; `set_gamepad_polling(cfg.tracking.gamepad)` at start.
+- UI: Settings > Tracking card (switch, seconds per input, controller
+  note) editing `[tracking]` through `ui/src/lib/toml.ts` and `PUT /rules`;
+  the Game tile shows hands-on "of <presence> in front"; a "Hands-on" apps
+  column; "Playing" / "In front" in the status block; the Rules idle chip
+  reads "hands-on".
+- `config/default.toml`: the shipped `gaming-daily` rule no longer sets
+  `idle_policy = "ignore"`, so it follows the toggle. `tools/seed_demo.py`
+  seeds hands-on shares (games 45-75 %, work 80-98 %).
+- Implementation split over four Opus 5.5 agents (platform, tracker +
+  storage, rules + API, UI) against the contract in the design doc; one
+  agent's note led to the default.toml change above.
+- Checked: `cargo fmt`, clippy `-D warnings`, 92 tests, `ui:check`,
+  `ui:build`, the Linux cross-check, and the debug app run hidden on a
+  fresh data directory (migrated to version 2). Not checked: the API on
+  the running binary (the owner's Nagsworth was running; single instance)
+  and a real controller.
+
 ## 2026-11-04_102439_1793784279: Auto updater and setup, after PaTorrent
 
 - New crate `ns-update` (D22): `Version` (semver order, the tag and setup

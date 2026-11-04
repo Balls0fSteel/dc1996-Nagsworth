@@ -13,6 +13,8 @@ use crate::rule::RuleSet;
 #[derive(Debug)]
 pub enum EngineCommand {
     ReplaceRules(RuleSet),
+    /// `tracking.hands_on_games` changed in the config.
+    SetHandsOnGames(bool),
     Shutdown,
 }
 
@@ -66,6 +68,10 @@ impl EngineTask {
                         let events = self.engine.replace_rules(rules, now);
                         self.publish(events);
                         self.snapshot.send_replace(self.engine.snapshot(now));
+                    }
+                    Some(EngineCommand::SetHandsOnGames(on)) => {
+                        self.engine.set_hands_on_games(on);
+                        self.snapshot.send_replace(self.engine.snapshot(self.clock.now()));
                     }
                     Some(EngineCommand::Shutdown) | None => break,
                 },
@@ -122,7 +128,7 @@ mod tests {
         let saved = Arc::new(Mutex::new(Vec::new()));
         let saved2 = saved.clone();
         let task = EngineTask {
-            engine: Engine::new(rules, TimeOfDay::MIDNIGHT, false),
+            engine: Engine::new(rules, TimeOfDay::MIDNIGHT, false, true),
             clock: clock.clone(),
             bus: bus.clone(),
             activity: arx,

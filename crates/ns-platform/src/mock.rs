@@ -111,6 +111,7 @@ impl Platform for MockPlatform {
             lock_workstation: true,
             autostart: true,
             steam: false,
+            gamepad: false,
         }
     }
 

@@ -137,6 +137,12 @@
     for (const c of categories) out[c.kind] += c.ms;
     return out;
   });
+  /** Hands-on time in Game categories (0 for history from before the feature). */
+  const gameInputMs = $derived(
+    categories.filter((c) => c.kind === "Game").reduce((s, c) => s + (c.input_ms ?? 0), 0),
+  );
+  const handsOnGames = $derived(snap?.engine.hands_on_games ?? false);
+  const showGameHandsOn = $derived(handsOnGames && gameInputMs > 0);
   const kindMs = (k: SegmentKind) => kinds.filter((x) => x.kind === k).reduce((s, x) => s + x.ms, 0);
   const idleMs = $derived(kindMs("idle"));
   const lockedMs = $derived(kindMs("locked"));
@@ -389,12 +395,21 @@
       sub={firstActive !== null ? `since ${time(firstActive)}` : `${apps.length} apps`}
     />
     {#each ["Work", "Game", "Web"] as const as k (k)}
-      <StatTile
-        label={k}
-        value={duration(byKind[k])}
-        sub={total > 0 ? `${percent(byKind[k], total)} of active` : " "}
-        color={categoryColor[k]}
-      />
+      {#if k === "Game" && showGameHandsOn}
+        <StatTile
+          label={k}
+          value={duration(gameInputMs)}
+          sub="of {duration(byKind[k])} in front"
+          color={categoryColor[k]}
+        />
+      {:else}
+        <StatTile
+          label={k}
+          value={duration(byKind[k])}
+          sub={total > 0 ? `${percent(byKind[k], total)} of active` : " "}
+          color={categoryColor[k]}
+        />
+      {/if}
     {/each}
     <StatTile
       label="Idle"
@@ -578,6 +593,7 @@
             <th>App</th>
             <th class="barcol"><span class="sr-only">Share bar</span></th>
             <th class="num">Time</th>
+            <th class="num hands" title="Seconds after a key press, mouse move or controller input">Hands-on</th>
             <th class="num share">Share</th>
           </tr>
         </thead>
@@ -603,6 +619,7 @@
                 </div>
               </td>
               <td class="num">{duration(a.ms)}</td>
+              <td class="num hands">{a.is_game || (a.input_ms ?? 0) > 0 ? duration(a.input_ms ?? 0) : ""}</td>
               <td class="num share muted">{percent(a.ms, appsTotal)}</td>
             </tr>
           {/each}
@@ -988,6 +1005,11 @@
     justify-content: center;
     padding: 6px 0 8px;
     border-top: 1px solid var(--border);
+  }
+  @container (max-width: 640px) {
+    .apps .hands {
+      display: none;
+    }
   }
   @container (max-width: 560px) {
     .apps .barcol {

@@ -42,6 +42,22 @@ tooltip names the rule, no overlay over the game. Alt-Tab out (or switch the
 game to windowed): the overlay appears within a second. Remove the test rule
 afterwards.
 
+## Hands-on gaming time (Windows, needs a controller)
+
+1. Plug in an XInput controller (Xbox pad, or any pad through Steam Input)
+   and start a game, or any app you set to the Game category on the Apps
+   page.
+2. Play with the controller only for two minutes; then put it down for two
+   minutes with the game still in front.
+
+Pass: the status block in the sidebar reads "Playing" while you use the pad
+and "In front" once you stop; `/v1/state` shows `activity.hands_on` flip the
+same way and `idle_ms` stays small while you only use the pad. On Today the
+Game tile shows about 2 min hands-on "of 4 min in front", and the
+`gaming-daily` rule's progress grows by about 2 min, not 4. Set
+`hands_on_games = false` on Settings: the rule now counts all 4 minutes
+(the tile keeps both numbers).
+
 ## Update check (Windows)
 
 Without a published release the check answers "newest version". To see

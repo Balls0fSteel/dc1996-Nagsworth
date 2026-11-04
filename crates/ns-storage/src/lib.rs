@@ -171,14 +171,14 @@ mod tests {
         let s = db
             .open_segment(Some(app.id), Some(t), SegmentKind::Active, 1_000, d)
             .unwrap();
-        db.extend_segment(s, 11_000).unwrap();
-        db.extend_segment(s, 21_000).unwrap();
+        db.extend_segment(s, 11_000, 0).unwrap();
+        db.extend_segment(s, 21_000, 0).unwrap();
         // Going backwards is ignored.
-        db.extend_segment(s, 5_000).unwrap();
+        db.extend_segment(s, 5_000, 0).unwrap();
         let idle = db
             .open_segment(None, None, SegmentKind::Idle, 21_000, d)
             .unwrap();
-        db.extend_segment(idle, 81_000).unwrap();
+        db.extend_segment(idle, 81_000, 0).unwrap();
 
         let apps = db.usage_by_app(d, d).unwrap();
         assert_eq!(apps.len(), 1);
@@ -210,6 +210,95 @@ mod tests {
         assert_eq!(db.prune(day("2026-11-03"), 0).unwrap(), 2);
         assert!(db.timeline(d).unwrap().is_empty());
         assert_eq!(db.usage_by_app(d, d).unwrap()[0].ms, 20_000);
+    }
+
+    #[test]
+    fn hands_on_feeds_daily_totals() {
+        let mut db = Db::open_in_memory().unwrap();
+        let d = day("2026-11-02");
+        let app = db
+            .get_or_create_app(&process("game.exe"), CategoryKind::Game, true, 0)
+            .unwrap();
+        let s = db
+            .open_segment(Some(app.id), None, SegmentKind::Active, 0, d)
+            .unwrap();
+        db.extend_segment(s, 10_000, 4_000).unwrap();
+        db.extend_segment(s, 20_000, 9_000).unwrap();
+        // A smaller total never takes time back.
+        db.extend_segment(s, 25_000, 1_000).unwrap();
+        // More than the segment's length is clamped to it (30 s).
+        db.extend_segment(s, 30_000, 99_000).unwrap();
+        // An end that does not grow is ignored, input included.
+        db.extend_segment(s, 30_000, 99_000).unwrap();
+        let idle = db
+            .open_segment(None, None, SegmentKind::Idle, 30_000, d)
+            .unwrap();
+        db.extend_segment(idle, 40_000, 0).unwrap();
+
+        let apps = db.usage_by_app(d, d).unwrap();
+        assert_eq!((apps[0].ms, apps[0].input_ms), (30_000, 30_000));
+        let cats = db.usage_by_category(d, d).unwrap();
+        assert_eq!(cats[0].input_ms, 30_000);
+        assert_eq!(db.daily_usage(d, d).unwrap()[0].input_ms, 30_000);
+        assert_eq!(
+            db.category_kind_input_ms(d, CategoryKind::Game).unwrap(),
+            30_000
+        );
+        assert_eq!(db.category_kind_ms(d, CategoryKind::Game).unwrap(), 30_000);
+        let kinds = db.kind_totals(d, d).unwrap();
+        let active = kinds
+            .iter()
+            .find(|k| k.kind == SegmentKind::Active)
+            .unwrap();
+        assert_eq!(active.input_ms, 30_000);
+        let idle_total = kinds.iter().find(|k| k.kind == SegmentKind::Idle).unwrap();
+        assert_eq!((idle_total.ms, idle_total.input_ms), (10_000, 0));
+        let tl = db.timeline(d).unwrap();
+        assert_eq!(tl[0].input_ms, 30_000);
+        assert_eq!(db.export_segments(d, d).unwrap()[0].input_ms, 30_000);
+
+        // Partial hands-on: the step between two totals is what gets added.
+        let s2 = db
+            .open_segment(Some(app.id), None, SegmentKind::Active, 40_000, d)
+            .unwrap();
+        db.extend_segment(s2, 50_000, 2_500).unwrap();
+        db.extend_segment(s2, 60_000, 3_000).unwrap();
+        let apps = db.usage_by_app(d, d).unwrap();
+        assert_eq!((apps[0].ms, apps[0].input_ms), (50_000, 33_000));
+    }
+
+    #[test]
+    fn migration_002_upgrades_a_001_database() {
+        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        rusqlite_migration::Migrations::new(vec![rusqlite_migration::M::up(include_str!(
+            "../migrations/001_init.sql"
+        ))])
+        .to_latest(&mut conn)
+        .unwrap();
+        conn.execute(
+            "INSERT INTO segments (kind, start_ts, end_ts, local_day)
+             VALUES ('idle', 0, 1000, '2026-11-02')",
+            [],
+        )
+        .unwrap();
+        let db = Db::init(conn).unwrap();
+        for table in ["segments", "daily_app_totals", "daily_kind_totals"] {
+            let mut stmt = db
+                .conn
+                .prepare(&format!("SELECT name FROM pragma_table_info('{table}')"))
+                .unwrap();
+            let cols: Vec<String> = stmt
+                .query_map([], |r| r.get(0))
+                .unwrap()
+                .collect::<rusqlite::Result<_>>()
+                .unwrap();
+            assert!(cols.iter().any(|c| c == "input_ms"), "{table}: {cols:?}");
+        }
+        let old: i64 = db
+            .conn
+            .query_row("SELECT input_ms FROM segments", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(old, 0);
     }
 
     #[test]

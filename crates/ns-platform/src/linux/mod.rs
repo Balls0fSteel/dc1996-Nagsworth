@@ -221,6 +221,7 @@ mod platform {
                 lock_workstation: true,
                 autostart: true,
                 steam: true,
+                gamepad: false,
             }
         }
     }

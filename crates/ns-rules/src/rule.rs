@@ -164,6 +164,9 @@ pub enum IdlePolicy {
     Pause,
     /// Idle time counts as activity (reading, watching, gamepad play).
     Ignore,
+    /// Only hands-on time counts: the last input (any device) is at most
+    /// `tracking.input_window_s` ago. Everything else is rest.
+    Input,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -210,8 +213,8 @@ pub struct Rule {
     #[serde(default)]
     pub scope: Scope,
     pub trigger: Trigger,
-    /// Defaults to `ignore` for the Game category (gamepad input is invisible
-    /// to idle detection) and `pause` otherwise.
+    /// Defaults to `input` for the Game category (`ignore` when
+    /// `tracking.hands_on_games` is off) and `pause` otherwise.
     #[serde(default)]
     pub idle_policy: Option<IdlePolicy>,
     #[serde(default = "default_escalation")]
@@ -228,8 +231,11 @@ impl Rule {
         self.name.as_deref().unwrap_or(&self.id)
     }
 
-    pub fn idle_policy(&self) -> IdlePolicy {
+    /// The configured policy, or the default for the scope: Game rules count
+    /// hands-on time when `hands_on_games` is on, otherwise all time in front.
+    pub fn idle_policy(&self, hands_on_games: bool) -> IdlePolicy {
         self.idle_policy.unwrap_or(match self.scope {
+            Scope::Category(CategoryKind::Game) if hands_on_games => IdlePolicy::Input,
             Scope::Category(CategoryKind::Game) => IdlePolicy::Ignore,
             _ => IdlePolicy::Pause,
         })
@@ -359,12 +365,19 @@ mod tests {
 
         let micro = set.get("micro-break").unwrap();
         assert_eq!(micro.scope, Scope::Any);
-        assert_eq!(micro.idle_policy(), IdlePolicy::Pause);
+        assert_eq!(micro.idle_policy(true), IdlePolicy::Pause);
+        assert_eq!(micro.idle_policy(false), IdlePolicy::Pause);
         assert!(micro.enabled);
 
         let gaming = set.get("gaming-daily").unwrap();
         assert_eq!(gaming.scope, Scope::Category(CategoryKind::Game));
-        assert_eq!(gaming.idle_policy(), IdlePolicy::Ignore);
+        // Without an explicit policy, Game rules follow `hands_on_games`.
+        let default = Rule {
+            idle_policy: None,
+            ..gaming.clone()
+        };
+        assert_eq!(default.idle_policy(true), IdlePolicy::Input);
+        assert_eq!(default.idle_policy(false), IdlePolicy::Ignore);
 
         let late = set.get("no-late-gaming").unwrap();
         let Trigger::Schedule { windows } = &late.trigger else {
@@ -422,5 +435,28 @@ mod tests {
         "#;
         let set = RuleSet::from_toml(app).unwrap();
         assert_eq!(set.rules[0].scope, Scope::App("game.exe".into()));
+    }
+
+    #[test]
+    fn explicit_idle_policy_wins() {
+        let text = r#"
+            [[rules]]
+            id = "a"
+            scope = { category = "Game" }
+            idle_policy = "ignore"
+            trigger = { kind = "daily_total", limit = "1h" }
+            [[rules]]
+            id = "b"
+            idle_policy = "input"
+            trigger = { kind = "interval", every = "1m", break_for = "1s" }
+        "#;
+        let set = RuleSet::from_toml(text).unwrap();
+        assert_eq!(set.rules[0].idle_policy(true), IdlePolicy::Ignore);
+        assert_eq!(set.rules[1].idle_policy(false), IdlePolicy::Input);
+        assert!(
+            toml::to_string(&set)
+                .unwrap()
+                .contains("idle_policy = \"input\"")
+        );
     }
 }

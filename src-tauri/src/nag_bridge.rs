@@ -278,6 +278,7 @@ mod tests {
             break_ms: 600_000,
             snoozes_left: 2,
             message: "m".into(),
+            idle_policy: ns_rules::IdlePolicy::Pause,
         });
         snap.rules.push(RuleSnapshot {
             id: "b".into(),
@@ -291,6 +292,7 @@ mod tests {
             break_ms: 30_000,
             snoozes_left: 0,
             message: String::new(),
+            idle_policy: ns_rules::IdlePolicy::Pause,
         });
         let b = NagBridge::default();
         assert!(b.seed(&snap));

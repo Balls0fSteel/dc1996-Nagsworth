@@ -4,11 +4,20 @@
 //! session changes via `WTSRegisterSessionNotification` and
 //! `RegisterSuspendResumeNotification` on a message-only window that runs on
 //! its own thread.
+//!
+//! Gamepads: XInput slots 0-3 are polled with `XInputGetState` on every
+//! sample, so controller use counts as input like a key press. A slot counts
+//! only when its buttons change or a trigger or stick moves beyond the XInput
+//! dead zones; `dwPacketNumber` alone is not trusted because stick drift
+//! bumps it every poll. Empty slots are re-probed every 3 s since the call is
+//! slow for them, and a newly connected pad is not itself input. Steam Input
+//! and most third-party pads present as XInput; DualShock over plain HID does
+//! not.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use ns_core::{ProcessInfo, SessionEvent, SessionState, Timestamp, WindowInfo};
 use windows::Win32::Foundation::{
@@ -36,6 +45,7 @@ use windows::Win32::System::Threading::{
     PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+use windows::Win32::UI::Input::XboxController::{XINPUT_GAMEPAD, XINPUT_STATE, XInputGetState};
 use windows::Win32::UI::Shell::{
     QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN, SHQueryUserNotificationState,
 };
@@ -62,6 +72,8 @@ pub struct WindowsPlatform {
     /// Process info keyed by pid, validated by process creation time so a
     /// reused pid does not return a stale entry.
     cache: Mutex<HashMap<u32, (u64, ProcessInfo)>>,
+    gamepad: Mutex<GamepadState>,
+    gamepad_polling: AtomicBool,
 }
 
 impl Default for WindowsPlatform {
@@ -74,6 +86,8 @@ impl WindowsPlatform {
     pub fn new() -> Self {
         Self {
             cache: Mutex::new(HashMap::new()),
+            gamepad: Mutex::new(GamepadState::default()),
+            gamepad_polling: AtomicBool::new(true),
         }
     }
 
@@ -108,6 +122,16 @@ impl WindowsPlatform {
 }
 
 impl Platform for WindowsPlatform {
+    /// Turns XInput polling on or off (`tracking.gamepad`). While off,
+    /// [`Platform::gamepad_idle_time`] returns `None`.
+    fn set_gamepad_polling(&self, on: bool) {
+        let was = self.gamepad_polling.swap(on, Ordering::SeqCst);
+        if was && !on {
+            // Stale snapshots would turn the next poll into a fake input.
+            *self.gamepad.lock().unwrap() = GamepadState::default();
+        }
+    }
+
     fn foreground_window(&self) -> Result<Option<WindowInfo>> {
         // SAFETY: no preconditions.
         let hwnd = unsafe { GetForegroundWindow() };
@@ -129,6 +153,16 @@ impl Platform for WindowsPlatform {
         // Both are 32-bit tick counts; wrapping_sub handles the 49.7-day wrap.
         let now = unsafe { GetTickCount() };
         Ok(Duration::from_millis(now.wrapping_sub(info.dwTime) as u64))
+    }
+
+    fn gamepad_idle_time(&self) -> Option<Duration> {
+        if !self.gamepad_polling.load(Ordering::SeqCst) {
+            return None;
+        }
+        let now = Instant::now();
+        let mut state = self.gamepad.lock().unwrap();
+        state.poll(now);
+        state.last_change.map(|t| now.duration_since(t))
     }
 
     fn process_info(&self, pid: u32) -> Result<ProcessInfo> {
@@ -254,8 +288,82 @@ impl Platform for WindowsPlatform {
             lock_workstation: true,
             autostart: true,
             steam: true,
+            gamepad: true,
         }
     }
+}
+
+/// XInput user slots.
+const XUSER_MAX_COUNT: usize = 4;
+/// `XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE` (not in the windows crate).
+const LEFT_THUMB_DEADZONE: i32 = 7849;
+/// `XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE`.
+const RIGHT_THUMB_DEADZONE: i32 = 8689;
+/// `XINPUT_GAMEPAD_TRIGGER_THRESHOLD`.
+const TRIGGER_THRESHOLD: i32 = 30;
+/// How often an empty slot is probed again.
+const REPROBE_EMPTY: Duration = Duration::from_secs(3);
+
+#[derive(Default)]
+struct PadSlot {
+    connected: bool,
+    last: XINPUT_GAMEPAD,
+    /// When a disconnected slot was last probed.
+    probed: Option<Instant>,
+}
+
+#[derive(Default)]
+struct GamepadState {
+    slots: [PadSlot; XUSER_MAX_COUNT],
+    /// The last controller input in this process, on any slot.
+    last_change: Option<Instant>,
+}
+
+impl GamepadState {
+    /// One `XInputGetState` per connected slot, plus empty slots whose
+    /// re-probe interval has passed.
+    fn poll(&mut self, now: Instant) {
+        for (index, slot) in self.slots.iter_mut().enumerate() {
+            if !slot.connected
+                && slot
+                    .probed
+                    .is_some_and(|t| now.duration_since(t) < REPROBE_EMPTY)
+            {
+                continue;
+            }
+            let mut xs = XINPUT_STATE::default();
+            // SAFETY: xs is a valid XINPUT_STATE out pointer.
+            let rc = unsafe { XInputGetState(index as u32, &mut xs) };
+            if rc == ERROR_SUCCESS.0 {
+                if slot.connected && gamepad_changed(&slot.last, &xs.Gamepad) {
+                    self.last_change = Some(now);
+                }
+                slot.connected = true;
+                slot.last = xs.Gamepad;
+            } else {
+                slot.connected = false;
+                slot.probed = Some(now);
+            }
+        }
+    }
+}
+
+/// Whether `next` differs from `prev` by more than noise: any button, a
+/// trigger crossing or moving past the trigger threshold, or a stick axis
+/// moving by more than its dead zone.
+fn gamepad_changed(prev: &XINPUT_GAMEPAD, next: &XINPUT_GAMEPAD) -> bool {
+    let trigger = |a: u8, b: u8| {
+        let (a, b) = (a as i32, b as i32);
+        (a > TRIGGER_THRESHOLD) != (b > TRIGGER_THRESHOLD) || (a - b).abs() > TRIGGER_THRESHOLD
+    };
+    let axis = |a: i16, b: i16, dead: i32| (a as i32 - b as i32).abs() > dead;
+    prev.wButtons != next.wButtons
+        || trigger(prev.bLeftTrigger, next.bLeftTrigger)
+        || trigger(prev.bRightTrigger, next.bRightTrigger)
+        || axis(prev.sThumbLX, next.sThumbLX, LEFT_THUMB_DEADZONE)
+        || axis(prev.sThumbLY, next.sThumbLY, LEFT_THUMB_DEADZONE)
+        || axis(prev.sThumbRX, next.sThumbRX, RIGHT_THUMB_DEADZONE)
+        || axis(prev.sThumbRY, next.sThumbRY, RIGHT_THUMB_DEADZONE)
 }
 
 struct HandleGuard(HANDLE);
@@ -569,5 +677,95 @@ mod tests {
         // May be None on a hidden desktop or in CI.
         let _ = p.foreground_window().unwrap();
         let _ = p.exclusive_fullscreen();
+    }
+
+    #[test]
+    fn gamepad_idle_time_does_not_panic() {
+        // Usually no controller here, so this is None; it must not panic.
+        let p = WindowsPlatform::new();
+        let _ = p.gamepad_idle_time();
+        let _ = p.gamepad_idle_time();
+        p.set_gamepad_polling(false);
+        assert_eq!(p.gamepad_idle_time(), None);
+        p.set_gamepad_polling(true);
+        let _ = p.gamepad_idle_time();
+        assert!(p.caps().gamepad);
+    }
+
+    fn pad() -> XINPUT_GAMEPAD {
+        XINPUT_GAMEPAD {
+            sThumbLX: 1000,
+            sThumbLY: -1000,
+            sThumbRX: 2000,
+            sThumbRY: -2000,
+            bLeftTrigger: 10,
+            bRightTrigger: 200,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn gamepad_no_change() {
+        assert!(!gamepad_changed(&pad(), &pad()));
+        assert!(!gamepad_changed(
+            &XINPUT_GAMEPAD::default(),
+            &XINPUT_GAMEPAD::default()
+        ));
+    }
+
+    #[test]
+    fn gamepad_buttons_count() {
+        use windows::Win32::UI::Input::XboxController::{XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B};
+        let mut next = pad();
+        next.wButtons = XINPUT_GAMEPAD_A;
+        assert!(gamepad_changed(&pad(), &next));
+        // Release counts too.
+        assert!(gamepad_changed(&next, &pad()));
+        let mut other = next;
+        other.wButtons = XINPUT_GAMEPAD_B;
+        assert!(gamepad_changed(&next, &other));
+    }
+
+    #[test]
+    fn gamepad_trigger_threshold() {
+        let prev = pad();
+        let mut next = prev;
+        // Small wobble below the threshold.
+        next.bLeftTrigger = 25;
+        assert!(!gamepad_changed(&prev, &next));
+        // Crossing the threshold, even by a little.
+        next.bLeftTrigger = 31;
+        assert!(gamepad_changed(&prev, &next));
+        // Moving a pressed trigger by more than the threshold.
+        let mut next = prev;
+        next.bRightTrigger = 160;
+        assert!(gamepad_changed(&prev, &next));
+        next.bRightTrigger = 180;
+        assert!(!gamepad_changed(&prev, &next));
+    }
+
+    #[test]
+    fn gamepad_stick_dead_zone() {
+        let prev = pad();
+        let mut next = prev;
+        // Drift inside the dead zones.
+        next.sThumbLX += 7849;
+        next.sThumbRY += 8689;
+        assert!(!gamepad_changed(&prev, &next));
+        let mut next = prev;
+        next.sThumbLY -= 7850;
+        assert!(gamepad_changed(&prev, &next));
+        // A move that would clear the left dead zone but not the right one.
+        let mut next = prev;
+        next.sThumbRX += 8000;
+        assert!(!gamepad_changed(&prev, &next));
+        next.sThumbRX += 1000;
+        assert!(gamepad_changed(&prev, &next));
+        // Full deflection does not overflow.
+        let mut a = prev;
+        let mut b = prev;
+        a.sThumbLX = i16::MIN;
+        b.sThumbLX = i16::MAX;
+        assert!(gamepad_changed(&a, &b));
     }
 }

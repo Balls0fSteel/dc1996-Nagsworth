@@ -26,7 +26,9 @@ types; Tauri only hosts the tray and the webview windows.
 
 - `Sampler` polls `Platform::sample()` every `tracking.poll_ms` on a blocking
   thread: foreground window (title, process, fullscreen, monitor), idle time
-  from `GetLastInputInfo`, and session state from WTS/power notifications.
+  (the smaller of `GetLastInputInfo` and the time since the last XInput
+  controller change, see docs/HANDS_ON_TIME.md), and session state from
+  WTS/power notifications.
   UWP apps hosted by `ApplicationFrameHost.exe` are resolved to the child
   window's process. Process info is cached by pid + creation time.
 - `Segmenter` (pure) turns samples into open/extend/close actions:
@@ -35,7 +37,11 @@ types; Tauri only hosts the tray and the webview windows.
   - going idle is backdated to the last input;
   - a gap longer than the poll interval + 5 s becomes a `suspended` segment;
   - segments split at the local day start (`general.day_start`);
-  - the open segment is flushed every 10 s.
+  - the open segment is flushed every 10 s;
+  - hands-on time: a sample whose idle time is within
+    `tracking.input_window_s` credits the time since the previous sample to
+    the active segment (`input_ms`), so "in front" and "hands-on" can be
+    compared per segment, app and day.
 - `SegmenterTask` maps actions to storage writes and bus events, looks up
   (or creates) the app with its category, and publishes the current
   `Activity` on a watch channel after every sample.
@@ -66,7 +72,8 @@ without `.exe` so the same lists categorize both systems.
 migrations via `rusqlite_migration`. Tables: `categories`, `apps`, `titles`,
 `segments`, `web_visits`, `ext_events_seen` (dedup), `daily_app_totals`,
 `daily_kind_totals`, `daily_web_totals`, `nag_events`, `rule_state`,
-`settings`. `GET /export` returns segments (CSV or JSON, with web visits) for
+`settings`. Migration 002 adds `input_ms` (hands-on milliseconds) to
+`segments` and both daily total tables. `GET /export` returns segments (CSV or JSON, with web visits) for
 a day range; `POST /backup` writes a `VACUUM INTO` copy to
 `<data dir>/backups/`. Totals grow with every segment extension, so reports never scan
 segments (except the one-day timeline). Retention prunes segments, visits
@@ -100,9 +107,17 @@ Active --enough rest--> Idle;  --left scope--> Satisfied (daily) | Idle (schedul
 Satisfied --renag interval passed, still due--> Active
 ```
 
-- Counting time: the activity is in the rule's scope and `active`, or `idle`
-  under idle policy `ignore` (reading mode forces `ignore`; the Game category
-  defaults to it because gamepad input is invisible to `GetLastInputInfo`).
+- Counting time: the activity is in the rule's scope and counts under the
+  rule's idle policy. `pause`: only `active` counts. `ignore`: `active` and
+  `idle` count (time in front of the screen). `input`: `active` or `idle`
+  counts only while the activity is hands-on (`Activity.hands_on`: the last
+  input on any device, gamepads included, at most `tracking.input_window_s`
+  ago). Without an explicit `idle_policy`, Game category rules default to
+  `input` while `tracking.hands_on_games` is on (the default) and to `ignore`
+  when it is off; all other rules default to `pause`. Reading mode turns
+  `pause` into `ignore` and leaves `input` alone. The effective policy is in
+  each rule's snapshot (`idle_policy`) and the toggle in
+  `engine.hands_on_games` of `GET /state`.
 - Rest: everything else, including lock, sleep and paused tracking. Gaps
   between ticks longer than 5 s are rest.
 - Escalation follows the rule's steps by time since the nag was raised, and

@@ -302,9 +302,11 @@
 
   function idleLabel(r: RuleDef): { text: string; isDefault: boolean } {
     const isGame = r.scope !== "any" && "category" in r.scope && r.scope.category === "Game";
-    const policy = r.idle_policy ?? (isGame ? "ignore" : "pause");
+    // The Game default follows `[tracking] hands_on_games`; "ignore" until the snapshot is in.
+    const gameDefault = snap?.engine.hands_on_games ? "input" : "ignore";
+    const policy = r.idle_policy ?? (isGame ? gameDefault : "pause");
     return {
-      text: policy === "pause" ? "idle pauses" : "idle counts",
+      text: policy === "pause" ? "idle pauses" : policy === "input" ? "hands-on" : "idle counts",
       isDefault: r.idle_policy === null,
     };
   }
