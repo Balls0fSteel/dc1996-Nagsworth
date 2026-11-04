@@ -17,10 +17,12 @@ the app's own update uses (below) to Tauri's installer template. On Linux,
 
 ```bash
 npm run ext:package
+npm run ext:source
 ```
 
-writes `extension/dist/nagsworth-chrome-<version>.zip` (Chrome Web
-Store) and `nagsworth-firefox-<version>.zip` (addons.mozilla.org).
+write `extension/dist/nagsworth-chrome-<version>.zip` (Chrome Web
+Store, Edge Add-ons), `nagsworth-firefox-<version>.zip` (addons.mozilla.org)
+and `nagsworth-extension-source-<version>.zip` (the AMO source upload).
 
 ## Versions
 
@@ -38,8 +40,8 @@ the workflow marks as such on GitHub, and which the app offers only with
 
 Push a tag `v<version>`. `.github/workflows/release.yml` builds the Windows
 installer (and installs, updates and uninstalls it on the runner with
-`tools/windows_install_test.ps1`), the `.deb` and AppImage, and the two
-extension zips, writes a `SHA256SUMS` over all of them, and attaches
+`tools/windows_install_test.ps1`), the `.deb` and AppImage, the two
+extension zips and the extension source zip, writes a `SHA256SUMS` over all of them, and attaches
 everything to a draft release to review and publish by hand. Started by
 hand (`workflow_dispatch`) it builds the same files as artifacts and makes
 no release.
@@ -95,9 +97,25 @@ import the certificate and write the same file by hand:
 
 ## Extension stores
 
-- Chrome Web Store: upload the chrome zip. The listing needs a privacy note:
-  the extension sends tab URLs and titles only to `127.0.0.1`.
-- AMO: upload the firefox zip; the add-on id is
-  `nagsworth@nagsworth.org` (`scripts/build.mjs`). Source code
-  upload is required because the scripts are bundled: attach a zip of
-  `extension/` without `node_modules` and `dist`.
+Nothing has been submitted yet: check the name first (PLAN.md), then create
+the developer accounts. The texts to paste are final copy in
+`extension/store/`: `listing.md` (name, summary, description, category,
+single purpose, remote code, notes for reviewers), `permissions.md` (one
+justification per permission), `privacy.md` (the privacy policy; the same
+text ships in the extension as `privacy.html`) and `screenshots.md` (the
+shots to take and their sizes). Run `npm run ext:check` (tsc, build,
+`web-ext lint`) and `npm run ext:test` before uploading.
+
+- Chrome Web Store: upload the chrome zip, fill the privacy tab from
+  `permissions.md` and `privacy.md` ("does not use remote code"), and
+  link the privacy policy (`privacy.md` on GitHub or the release page).
+- Edge Add-ons (Partner Center): upload the same chrome zip; Edge needs no
+  build of its own. Brave, Opera and Vivaldi install from the Chrome Web
+  Store.
+- AMO: upload the firefox zip; the add-on id is `nagsworth@nagsworth.org`
+  (`scripts/build.mjs`), the minimum is Firefox 140 and the manifest
+  declares `browsingActivity` in `data_collection_permissions`. The scripts
+  are bundled, so attach `nagsworth-extension-source-<version>.zip` as the
+  source code and paste the reviewer notes from `listing.md`.
+- The add-on id and the Chrome item id must stay the same across versions;
+  the extension's version comes from `extension/package.json`.

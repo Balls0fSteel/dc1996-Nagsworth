@@ -6,8 +6,9 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "package": "node scripts/build.mjs && node scripts/package.mjs",
-    "check": "tsc --noEmit",
-    "test": "vitest run"
+    "check": "tsc --noEmit && node scripts/build.mjs && web-ext lint --source-dir dist/firefox",
+    "test": "vitest run",
+    "source": "node scripts/source.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.0",

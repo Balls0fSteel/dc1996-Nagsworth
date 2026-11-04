@@ -10,6 +10,7 @@
     "ui:check": "npm --prefix ui run check",
     "ext:build": "npm --prefix extension run build",
     "ext:package": "npm --prefix extension run package",
+    "ext:source": "npm --prefix extension run source",
     "ext:check": "npm --prefix extension run check",
     "ext:test": "npm --prefix extension run test"
   },

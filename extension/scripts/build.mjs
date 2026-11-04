@@ -81,13 +81,23 @@ base.version = pkg.version;
 
 const targets = {
   // storage.session (the retry deadline across worker restarts) needs
-  // Chrome 102 and Firefox 115.
+  // Chrome 102 (Firefox 115).
   chrome: { ...base, minimum_chrome_version: "102", background: { service_worker: "background.js" } },
   firefox: {
     ...base,
     background: { scripts: ["background.js"] },
     browser_specific_settings: {
-      gecko: { id: "nagsworth@nagsworth.org", strict_min_version: "115.0" },
+      gecko: {
+        id: "nagsworth@nagsworth.org",
+        // 140 (an ESR) is the first with the install-time data consent that
+        // data_collection_permissions declares; AMO requires the key.
+        strict_min_version: "140.0",
+        // The active tab's url and title leave the extension (for the app on
+        // 127.0.0.1), which AMO counts as browsing activity.
+        data_collection_permissions: { required: ["browsingActivity"] },
+      },
+      // There is no Nagsworth app for Android; this only keeps lint honest.
+      gecko_android: { strict_min_version: "142.0" },
     },
   },
 };

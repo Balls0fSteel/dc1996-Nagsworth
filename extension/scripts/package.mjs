@@ -5,7 +5,7 @@
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { deflateRawSync } from "node:zlib";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -24,21 +24,23 @@ function crc32(buf) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-function files(dir) {
+function files(dir, skip) {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
-    return statSync(p).isDirectory() ? files(p) : [p];
+    if (skip(p)) return [];
+    return statSync(p).isDirectory() ? files(p, skip) : [p];
   });
 }
 
-export function zip(dir) {
+/** Zips every file under `dir` for which `skip(path)` is false. */
+export function zip(dir, skip = () => false) {
   const locals = [];
   const centrals = [];
   let offset = 0;
   // Fixed timestamp (1980-01-01) keeps builds reproducible.
   const time = 0;
   const date = (0 << 9) | (1 << 5) | 1;
-  for (const file of files(dir).sort()) {
+  for (const file of files(dir, skip).sort()) {
     const name = Buffer.from(relative(dir, file).split("\\").join("/"));
     const data = readFileSync(file);
     const packed = deflateRawSync(data);
@@ -82,8 +84,11 @@ export function zip(dir) {
   return Buffer.concat([...locals, ...centrals, end]);
 }
 
-for (const target of ["chrome", "firefox"]) {
-  const out = join(dist, `nagsworth-${target}-${version}.zip`);
-  writeFileSync(out, zip(join(dist, target)));
-  console.log(`packed ${out}`);
+// Run as a script (not when imported by source.mjs).
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  for (const target of ["chrome", "firefox"]) {
+    const out = join(dist, `nagsworth-${target}-${version}.zip`);
+    writeFileSync(out, zip(join(dist, target)));
+    console.log(`packed ${out}`);
+  }
 }

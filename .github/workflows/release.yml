@@ -9,7 +9,7 @@ name: Release
 #   from it: crates/ns-update, docs/DECISIONS.md D22), which the job installs, updates in
 #   place and uninstalls on the runner (tools/windows_install_test.ps1).
 # - Linux x86_64: the .deb and the AppImage.
-# - The browser extension's two store zips.
+# - The browser extension's two store zips and its source zip for AMO.
 #
 # Nagsworth's update check downloads `Nagsworth_<version>_x64-setup.exe` and `SHA256SUMS` from
 # the release's files, so those names are part of the app (crates/ns-update/src/version.rs).
@@ -127,6 +127,7 @@ jobs:
       - run: npm ci --prefix extension
       - run: npm run tauri -- build
       - run: npm run ext:package
+      - run: npm run ext:source
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x86_64
