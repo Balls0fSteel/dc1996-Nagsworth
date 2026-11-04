@@ -154,3 +154,10 @@ export function canAct(r: RuleSnapshot): { snooze: boolean; skip: boolean } {
   const due = r.enabled && (st === "pending" || st === "active");
   return { snooze: due && (r.snoozes_left ?? 0) > 0, skip: due };
 }
+
+/** Where the user allows the extension in private windows. */
+export function privateWindowHint(browser: string): string {
+  return browser === "firefox"
+    ? 'Firefox does not run the extension in private windows yet, so it cannot see those tabs. Allow it in about:addons > Nagsworth > "Run in Private Windows".'
+    : 'This browser does not run the extension in incognito windows yet, so it cannot see those tabs. Allow it on the extensions page (chrome://extensions, edge://extensions) > Nagsworth > Details > "Allow in Incognito".';
+}
