@@ -2295,16 +2295,13 @@ dependencies = [
 name = "ns-app"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "ns-api",
  "ns-core",
  "ns-platform",
  "ns-rules",
+ "ns-runtime",
  "ns-storage",
- "ns-tracker",
  "ns-update",
  "serde",
- "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
@@ -2355,6 +2352,23 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "toml 0.9.12+spec-1.1.0",
+ "tracing",
+]
+
+[[package]]
+name = "ns-runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ns-api",
+ "ns-core",
+ "ns-platform",
+ "ns-rules",
+ "ns-storage",
+ "ns-tracker",
+ "serde",
+ "serde_json",
+ "tokio",
  "tracing",
 ]
 

@@ -132,7 +132,11 @@ Each phase ships on its own and leaves the app working.
 1. **Extract `ns-runtime`** (pure move): `runtime.rs`, side effects and
    retention into a crate; `src-tauri` depends on it. No behaviour change.
    Tests: the existing ones, plus `Runtime::start` on a temp dir with
-   `MockPlatform` (new: proves it needs no Tauri).
+   `MockPlatform` (new: proves it needs no Tauri). Built 2026-11-05_091535_1793870135:
+   `crates/ns-runtime` (the file moved as `lib.rs`; its existing
+   start/serve/shutdown test with `MockPlatform` came along), `cargo tree`
+   shows no Tauri, `ns-app` dropped its direct `ns-api`, `ns-tracker`,
+   `anyhow` and `serde_json` dependencies.
 2. **Nag board into the runtime + API**: `NagBoard` (pure, the bridge's
    logic and its tests), `GET /v1/nags/current`, `nags_changed` on SSE,
    autostart and update endpoints. The GUI switches its nag windows, update

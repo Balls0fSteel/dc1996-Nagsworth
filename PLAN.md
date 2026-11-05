@@ -58,7 +58,8 @@ nagsworth/
     ns-rules/     RuleSet (TOML), Engine, NagState machine, ControlCommand
     ns-storage/   Db, migrations/001_init.sql, storage actor, query modules
     ns-api/       axum router, auth, pairing, routes
-  src-tauri/                 # crate ns-app: main.rs, app.rs, tray.rs, windows.rs, commands.rs, runtime.rs, nag_bridge.rs
+    ns-runtime/   composition root (Runtime::start), side effects, retention
+  src-tauri/                 # crate ns-app: main.rs, app.rs, tray.rs, windows.rs, commands.rs, nag_bridge.rs, update.rs
   ui/                        # Svelte 5 + Vite + TS → ui/dist (tauri frontendDist)
   extension/                 # MV3 WebExtension, TS + Vite → dist/chrome, dist/firefox
 ```
@@ -411,7 +412,8 @@ catalogue file is read at start only.
    `nagsworthd` with the GUI as its official client, in five phases.
    Decided 2026-11-05_091205_1793869925 (D26), all as proposed: after the v0.1.0 tag
    (step 4a), phase 1 (extract `ns-runtime`) and phase 2 (nag board and
-   endpoints, GUI as client); the split (phase 3) is 0.2.0.
+   endpoints, GUI as client); the split (phase 3) is 0.2.0. Phase 1 is done
+   (2026-11-05_091535_1793870135); phase 2 is next.
 
 ## Risks and open questions
 

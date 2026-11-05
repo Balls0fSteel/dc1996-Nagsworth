@@ -2,6 +2,20 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-05_091535_1793870135: Headless phase 1: `ns-runtime` crate
+
+- `src-tauri/src/runtime.rs` moved unchanged to `crates/ns-runtime/src/lib.rs`
+  (composition root, side effects, retention, and its start/serve/shutdown
+  test with `MockPlatform`); `ns-app` depends on it and no longer on
+  `ns-api`, `ns-tracker`, `anyhow` or `serde_json` directly. `cargo tree -p
+  ns-runtime` has no Tauri, WebView or wry crate. No behaviour change.
+- Verified: 108 tests, clippy `-D warnings`, fmt; the built app started on
+  the hidden desktop, served `/v1/state` (5 rules) and `/v1/stats/breaks`.
+  The Linux cross-check is not possible for `ns-runtime` on this machine
+  (bundled SQLite needs a Linux C cross-compiler); it adds no platform code.
+- Docs: AGENTS.md crate map and dependency direction, ARCHITECTURE.md,
+  PLAN.md layout, docs/HEADLESS.md phase 1 status.
+
 ## 2026-11-05_091205_1793869925: Headless-first decided
 
 - The owner took all five proposals in docs/HEADLESS.md: the service owns

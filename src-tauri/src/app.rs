@@ -13,9 +13,9 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 
 use crate::nag_bridge::NagBridge;
-use crate::runtime::Runtime;
 use crate::update::Updater;
 use crate::{commands, tray, windows};
+use ns_runtime::Runtime;
 
 /// What commands and the tray need from the runtime.
 pub struct AppCtx {

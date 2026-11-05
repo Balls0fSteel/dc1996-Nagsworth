@@ -1,6 +1,6 @@
 //! Composition root. Starts every tracking, rules and API task on a dedicated
-//! tokio runtime. Uses no Tauri types, so a headless service build can reuse
-//! it unchanged.
+//! tokio runtime. Has no UI dependency: the Tauri app hosts it today, and the
+//! `nagsworthd` service will (docs/HEADLESS.md, D26).
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -448,7 +448,7 @@ mod tests {
 
     #[test]
     fn starts_serves_and_shuts_down() {
-        let dir = std::env::temp_dir().join(format!("an-runtime-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("ns-runtime-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let platform = Arc::new(MockPlatform::scripted(vec![sample(
             SystemClock.now(),

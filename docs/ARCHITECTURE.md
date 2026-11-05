@@ -1,8 +1,9 @@
 # Architecture
 
 One tray process. Tracking, rules and the local API run on a dedicated
-tokio runtime started by `src-tauri/src/runtime.rs`, which uses no Tauri
-types; Tauri only hosts the tray and the webview windows.
+tokio runtime started by the `ns-runtime` crate (`Runtime::start`), which
+has no UI dependency; Tauri only hosts the tray and the webview windows. A
+per-user `nagsworthd` service will host the same crate (docs/HEADLESS.md).
 
 ```
  platform thread (WTS + power notifications)

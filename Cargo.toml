@@ -17,6 +17,7 @@ ns-rules = { path = "crates/ns-rules" }
 ns-storage = { path = "crates/ns-storage" }
 ns-api = { path = "crates/ns-api" }
 ns-update = { path = "crates/ns-update" }
+ns-runtime = { path = "crates/ns-runtime" }
 
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
 tokio-stream = { version = "0.1", features = ["sync"] }

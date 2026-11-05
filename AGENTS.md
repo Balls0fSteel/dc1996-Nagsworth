@@ -15,12 +15,14 @@ specific to this project. Read [PLAN.md](PLAN.md) and
 | `ns-rules` | `crates/ns-rules` | `RuleSet` (TOML), `Engine` (pure state machine), `EngineTask`. |
 | `ns-api` | `crates/ns-api` | axum router on `127.0.0.1:47821/v1`, bearer auth, pairing, SSE. |
 | `ns-update` | `crates/ns-update` | Update check (GitHub releases API), `Checker`, setup download checked against `SHA256SUMS`, Windows install detection and the silent setup start. |
-| `ns-app` | `src-tauri` | Tauri shell: `runtime.rs` (composition root, no Tauri types), `nag_bridge.rs`, `update.rs`, `tray.rs`, `windows.rs`, `commands.rs`; `windows/hooks.nsh` for the installer. |
+| `ns-runtime` | `crates/ns-runtime` | Composition root (`Runtime::start`): every tracking, rules, storage and API task on one tokio runtime, side effects, retention. No UI dependency; hosted by `ns-app` now and by `nagsworthd` later (docs/HEADLESS.md). |
+| `ns-app` | `src-tauri` | Tauri shell hosting `ns-runtime`: `nag_bridge.rs`, `update.rs`, `tray.rs`, `windows.rs`, `commands.rs`; `windows/hooks.nsh` for the installer. |
 | UI | `ui/` | Svelte 5 + TS + Vite, pages `index`, `toast`, `overlay`, `pair`. |
 | Extension | `extension/` | MV3, TS, built by `scripts/build.mjs` into `dist/chrome` and `dist/firefox`. |
 
 Dependency direction: `ns-core` <- `ns-platform`, `ns-storage` <- `ns-tracker`,
-`ns-rules` <- `ns-api` <- `ns-app`; `ns-update` stands alone under `ns-app`.
+`ns-rules` <- `ns-api` <- `ns-runtime` <- `ns-app`; `ns-update` stands alone
+under `ns-app`. Nothing below `ns-app` may depend on Tauri.
 
 ## Conventions
 

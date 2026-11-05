@@ -1,6 +1,6 @@
 [package]
 name = "ns-app"
-description = "Nagsworth tray app: tracking, nags and the dashboard"
+description = "Nagsworth tray app: hosts ns-runtime and shows the nags and the dashboard"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,16 +15,13 @@ path = "src/main.rs"
 tauri-build.workspace = true
 
 [dependencies]
-ns-api.workspace = true
 ns-core.workspace = true
 ns-platform.workspace = true
 ns-rules.workspace = true
+ns-runtime.workspace = true
 ns-storage.workspace = true
-ns-tracker.workspace = true
 ns-update.workspace = true
-anyhow.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 tauri.workspace = true
 tauri-plugin-single-instance.workspace = true
 tauri-plugin-opener.workspace = true

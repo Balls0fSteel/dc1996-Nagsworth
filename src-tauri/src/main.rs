@@ -4,7 +4,6 @@
 mod app;
 mod commands;
 mod nag_bridge;
-mod runtime;
 mod tray;
 mod update;
 mod windows;
