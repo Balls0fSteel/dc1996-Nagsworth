@@ -141,7 +141,18 @@ Each phase ships on its own and leaves the app working.
    logic and its tests), `GET /v1/nags/current`, `nags_changed` on SSE,
    autostart and update endpoints. The GUI switches its nag windows, update
    banner and autostart switch to the API while still hosting the runtime
-   in-process. This is the phase that makes the GUI a client.
+   in-process. This is the phase that makes the GUI a client. Built
+   2026-11-05_092738_1793870858: `ns_runtime::nag_board` (the bridge's logic and tests,
+   deferral and beep included) publishes `NagsView` on a watch and as
+   `Event::Nags`; `ns_runtime::update` publishes `Event::Update` and
+   `AppEvent::ExitForUpdate`; `ns_api::Host` (autostart, updates) is
+   implemented by the runtime; new routes `GET /nags/current`,
+   `GET/PUT /autostart`, `GET /update`, `POST /update/{check,download,
+   cancel,install,dismiss}`, `PUT /update/settings`, and
+   `/events?sources=`. The pages use only the API (fetch-streamed SSE); the
+   Tauri commands left are `get_api_info`, `open_dashboard`, `resize_toast`
+   and `open_release_page`. The window manager and the tray still read the
+   runtime in-process; phase 3 swaps that for the event stream.
 3. **`nagsworthd`** binary, discovery file, single-instance lock,
    `POST /v1/shutdown`, the GUI starting the service when absent. The
    installer (NSIS hooks, `.deb`) ships both; autostart registers the

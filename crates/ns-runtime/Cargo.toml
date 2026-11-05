@@ -13,6 +13,7 @@ ns-platform.workspace = true
 ns-rules.workspace = true
 ns-storage.workspace = true
 ns-tracker.workspace = true
+ns-update.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

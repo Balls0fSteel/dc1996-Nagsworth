@@ -9,9 +9,8 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Manager};
 
 use crate::app::AppCtx;
-use crate::nag_bridge::NagBridge;
-use crate::update::Updater;
 use crate::windows;
+use ns_runtime::update::Updater;
 
 const PAUSE_MINUTES: u64 = 30;
 const UPDATE_CHECK: &str = "Check for updates…";
@@ -117,11 +116,13 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 let reading_mode = ctx.engine.borrow().reading_mode;
                 let paused = activity.kind == Some(SegmentKind::Paused);
                 // A nag that cannot be shown (exclusive fullscreen) goes here.
-                let bridge = app.state::<NagBridge>();
-                let due = if bridge.is_deferred() {
-                    bridge.current()
-                } else {
-                    Vec::new()
+                let due = {
+                    let board = ctx.nags.borrow();
+                    if board.deferred {
+                        board.nags.clone()
+                    } else {
+                        Vec::new()
+                    }
                 };
                 let tip = match (&activity.kind, &activity.app) {
                     _ if !due.is_empty() => format!(

@@ -8,6 +8,7 @@ pub mod config;
 pub mod day;
 pub mod event;
 pub mod types;
+pub mod view;
 
 pub use clock::{Clock, MockClock, SystemClock};
 pub use config::Config;
@@ -20,3 +21,4 @@ pub use event::{
 pub use types::{
     CategoryKind, ProcessInfo, Sample, Segment, SegmentKind, SessionState, Timestamp, WindowInfo,
 };
+pub use view::{AppEvent, AvailableView, DownloadView, NagView, NagsView, UpdateStatus};

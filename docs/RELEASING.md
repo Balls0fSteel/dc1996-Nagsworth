@@ -68,7 +68,7 @@ for the process to exit (`src-tauri/windows/hooks.nsh`), installs over the
 same folder without new shortcuts, keeps the data, and starts the new
 version in the tray. A copy run from anywhere else, and Linux, get the
 release page instead. `crates/ns-update` holds the logic;
-`src-tauri/src/update.rs` the state and the commands;
+`crates/ns-runtime/src/update.rs` the state, `/v1/update/*` the controls;
 docs/DECISIONS.md D22 the reasoning.
 
 To try it without a release: serve a fake listing and files locally and

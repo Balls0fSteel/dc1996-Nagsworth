@@ -1,15 +1,12 @@
-//! Tauri commands for the dashboard and nag windows. Everything else goes
-//! through the local HTTP API.
+//! Tauri commands for the dashboard and nag windows: only what needs the
+//! window system. Everything else, the nags, autostart and updates included,
+//! goes through the local HTTP API (docs/HEADLESS.md).
 
-use ns_core::ControlCommand;
 use serde::Serialize;
 use tauri::{AppHandle, State};
-
 use tauri_plugin_opener::OpenerExt;
 
 use crate::app::AppCtx;
-use crate::nag_bridge::{NagBridge, NagView};
-use crate::update::{UpdateStatus, Updater};
 use crate::windows;
 
 #[derive(Serialize)]
@@ -30,40 +27,6 @@ pub fn get_api_info(ctx: State<'_, AppCtx>) -> Result<ApiInfo, String> {
 }
 
 #[tauri::command]
-pub fn current_nags(bridge: State<'_, NagBridge>) -> Vec<NagView> {
-    bridge.current()
-}
-
-#[tauri::command]
-pub fn nag_action(ctx: State<'_, AppCtx>, rule_id: String, action: String) -> Result<(), String> {
-    let cmd = match action.as_str() {
-        "snooze" => ControlCommand::Snooze { rule_id },
-        "skip" => ControlCommand::SkipBreak { rule_id },
-        "break" => ControlCommand::StartBreakNow {
-            rule_id: Some(rule_id),
-        },
-        other => return Err(format!("unknown action `{other}`")),
-    };
-    ctx.control(cmd);
-    Ok(())
-}
-
-/// What the nag windows need from the config.
-#[derive(serde::Serialize)]
-pub struct NagPrefs {
-    /// A soft tick on the overlay when the routine moves to the next step.
-    pub step_sound: bool,
-}
-
-#[tauri::command]
-pub fn nag_prefs(ctx: State<'_, AppCtx>) -> NagPrefs {
-    let cfg = ctx.config.read().unwrap_or_else(|e| e.into_inner());
-    NagPrefs {
-        step_sound: cfg.exercises.step_sound,
-    }
-}
-
-#[tauri::command]
 pub fn open_dashboard(app: AppHandle) {
     windows::show_dashboard(&app);
 }
@@ -74,65 +37,13 @@ pub fn resize_toast(app: AppHandle, height: f64) -> Result<(), String> {
     windows::resize_toast(&app, height).map_err(|e| e.to_string())
 }
 
+/// Opens a release page of this project in the browser (the update banner's
+/// "Release notes"). Other URLs are refused.
 #[tauri::command]
-pub fn get_autostart(ctx: State<'_, AppCtx>) -> Result<bool, String> {
-    ctx.platform.autostart().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn set_autostart(ctx: State<'_, AppCtx>, enabled: bool) -> Result<(), String> {
-    ctx.platform
-        .set_autostart(enabled)
-        .map_err(|e| e.to_string())
-}
-
-// ---- Updates (update.rs) ----
-
-#[tauri::command]
-pub fn update_status(updater: State<'_, Updater>) -> UpdateStatus {
-    updater.status()
-}
-
-#[tauri::command]
-pub fn update_check(updater: State<'_, Updater>) {
-    updater.check_now();
-}
-
-#[tauri::command]
-pub fn update_download(updater: State<'_, Updater>) -> Result<(), String> {
-    updater.download()
-}
-
-#[tauri::command]
-pub fn update_cancel(updater: State<'_, Updater>) {
-    updater.cancel();
-}
-
-#[tauri::command]
-pub fn update_install(updater: State<'_, Updater>) -> Result<(), String> {
-    updater.install()
-}
-
-#[tauri::command]
-pub fn update_dismiss(updater: State<'_, Updater>) {
-    updater.dismiss();
-}
-
-#[tauri::command]
-pub fn update_set_auto(updater: State<'_, Updater>, on: bool) {
-    updater.set_auto(on);
-}
-
-#[tauri::command]
-pub fn update_set_beta(updater: State<'_, Updater>, on: bool) {
-    updater.set_beta(on);
-}
-
-/// The available release's page in the browser (notes, and the files for a copy that cannot
-/// install the update itself).
-#[tauri::command]
-pub fn update_open_release_page(app: AppHandle, updater: State<'_, Updater>) -> Result<(), String> {
-    let url = updater.release_url().ok_or("no newer version is known")?;
+pub fn open_release_page(app: AppHandle, url: String) -> Result<(), String> {
+    if !url.starts_with(&format!("{}/", ns_update::RELEASES_URL)) {
+        return Err("not a release page of this project".into());
+    }
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())

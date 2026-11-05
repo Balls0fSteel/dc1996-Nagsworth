@@ -2,6 +2,45 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-05_092738_1793870858: Headless phase 2: nag board and API, the GUI as a client
+
+- `ns_core::view`: `NagView`, `NagsView`, `UpdateStatus` (+ views),
+  `AppEvent`; `Event` gains `Nags`, `Update`, `App` and `Event::source()`.
+- `ns_runtime::nag_board`: the bridge's logic (one countdown for several
+  breaks, toast vs overlay, seeding from the snapshot, exclusive-fullscreen
+  deferral with the beep) as a pure `NagBoard` plus a task that publishes
+  `NagsView` on a watch and the bus. It subscribes before the engine task
+  starts. The bridge's three tests moved with it.
+- `ns_runtime::update`: the updater, unchanged in behaviour, without Tauri:
+  state changes go out as `Event::Update`, starting the setup publishes
+  `AppEvent::ExitForUpdate` (the app exits on it).
+- `ns-api`: `Host` trait (autostart, updates; the runtime implements it
+  with the platform and the updater), `GET /nags/current`,
+  `GET/PUT /autostart`, `GET /update`, `POST /update/{check,download,cancel,
+  install,dismiss}`, `PUT /update/settings`, `/events?sources=a,b`. A host
+  error is 409 with `{error}`.
+- Tauri shell: `nag_bridge.rs` only opens and closes windows from the
+  board's watch and exits on `ExitForUpdate`; `update.rs` is gone; commands
+  left: `get_api_info`, `open_dashboard`, `resize_toast`,
+  `open_release_page` (refuses URLs outside this project's releases).
+  `ns-storage` is no longer a direct dependency.
+- UI: `subscribeEvents` (fetch-streamed SSE with the bearer token,
+  reconnects and reloads), the nag page on `/nags/current` + `nags` events
+  + `/control/*`, autostart and updates on HTTP (so they also work in a
+  plain browser), the step tick's setting from `/exercises`. The overlay no
+  longer reads its Tauri window label outside the app.
+- Verified: 109 tests (new: the endpoints with a fake host), clippy
+  `-D warnings`, fmt, `ui:check`; on the hidden desktop the built app
+  reported the overlay wanted during a break and cleared after skip, the
+  filtered stream carried only `nags` and `update` events in order, and
+  `/update` and `/autostart` answered (autostart was only read, never set:
+  that writes the real Run key). In the browser against the running app the
+  overlay page showed a break started after it loaded, Esc ended it
+  (`ended_early`) and the page emptied, and Settings' "Check now" showed
+  the answer from the stream. Not checked: the nag windows inside the app
+  itself (the capture tool pictures only the dashboard), the tray tooltip
+  during a deferred overlay, an update install.
+
 ## 2026-11-05_091535_1793870135: Headless phase 1: `ns-runtime` crate
 
 - `src-tauri/src/runtime.rs` moved unchanged to `crates/ns-runtime/src/lib.rs`

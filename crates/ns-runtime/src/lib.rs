@@ -2,16 +2,20 @@
 //! tokio runtime. Has no UI dependency: the Tauri app hosts it today, and the
 //! `nagsworthd` service will (docs/HEADLESS.md, D26).
 
+pub mod nag_board;
+pub mod update;
+
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use anyhow::Context;
-use ns_api::{ApiState, Auth, ConfigStore};
+use ns_api::{ApiState, Auth, ConfigStore, Host, UpdateAction};
 use ns_core::config::{self, Config};
 use ns_core::{
-    Activity, Clock, ControlCommand, Event, EventBus, LocalDay, NagEvent, NagLevel, SystemClock,
+    Activity, Clock, ControlCommand, Event, EventBus, LocalDay, NagEvent, NagLevel, NagsView,
+    SystemClock, UpdateStatus,
 };
 use ns_platform::Platform;
 use ns_rules::{
@@ -23,6 +27,8 @@ use ns_tracker::web::WebTask;
 use ns_tracker::{Categorizer, Sampler, Segmenter, SegmenterConfig, WebSegmenter};
 use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
+
+use crate::update::Updater;
 
 const READING_MODE_KEY: &str = "engine.reading_mode";
 const ROTATION_KEY: &str = "exercises.rotation";
@@ -38,6 +44,9 @@ pub struct Runtime {
     pub data_dir: PathBuf,
     /// The live config, shared with the API (updated on save and reload).
     pub config: Arc<RwLock<Config>>,
+    /// The open nags and the windows they need (`nag_board`).
+    pub nags: watch::Receiver<NagsView>,
+    pub updater: Updater,
     engine_cmd: mpsc::Sender<EngineCommand>,
     sampler: JoinHandle<()>,
     segmenter: JoinHandle<()>,
@@ -221,6 +230,18 @@ impl Runtime {
             engine.import_rotation(json);
         }
         let (snap_tx, snap_rx) = watch::channel(engine.snapshot(clock.now()));
+        // The board subscribes before the engine runs, and seeds itself from
+        // the snapshot for nags restored from saved counters.
+        let (nags_tx, nags_rx) = watch::channel(NagsView::default());
+        rt.spawn(nag_board::run(
+            bus.subscribe(),
+            bus.clone(),
+            snap_rx.clone(),
+            platform.clone(),
+            nags_tx,
+        ));
+        let updater = Updater::new(storage.clone(), bus.clone());
+        updater.spawn();
         let (engine_cmd, engine_cmd_rx) = mpsc::channel(8);
         let persist_storage = storage.clone();
         let persist_clock = clock.clone();
@@ -273,6 +294,11 @@ impl Runtime {
             ext_clients: Arc::default(),
             backup_dir: data_dir.join("backups"),
             catalog,
+            nags: nags_rx.clone(),
+            host: Arc::new(RuntimeHost {
+                platform: platform.clone(),
+                updater: updater.clone(),
+            }),
         };
         let api_addr = match rt.block_on(ns_api::serve(api_state, &cfg.api.bind, cfg.api.port)) {
             Ok(addr) => Some(addr),
@@ -293,6 +319,8 @@ impl Runtime {
             token,
             data_dir,
             config,
+            nags: nags_rx,
+            updater,
             engine_cmd,
             sampler,
             segmenter,
@@ -329,6 +357,41 @@ impl Runtime {
             }
         });
         rt.shutdown_timeout(Duration::from_secs(1));
+    }
+}
+
+/// Autostart through the platform, updates through the [`Updater`].
+struct RuntimeHost {
+    platform: Arc<dyn Platform>,
+    updater: Updater,
+}
+
+impl Host for RuntimeHost {
+    fn autostart(&self) -> Result<bool, String> {
+        self.platform.autostart().map_err(|e| e.to_string())
+    }
+
+    fn set_autostart(&self, enabled: bool) -> Result<(), String> {
+        self.platform
+            .set_autostart(enabled)
+            .map_err(|e| e.to_string())
+    }
+
+    fn update_status(&self) -> UpdateStatus {
+        self.updater.status()
+    }
+
+    fn update(&self, action: UpdateAction) -> Result<(), String> {
+        match action {
+            UpdateAction::Check => self.updater.check_now(),
+            UpdateAction::Download => self.updater.download()?,
+            UpdateAction::Cancel => self.updater.cancel(),
+            UpdateAction::Install => self.updater.install()?,
+            UpdateAction::Dismiss => self.updater.dismiss(),
+            UpdateAction::SetAuto(on) => self.updater.set_auto(on),
+            UpdateAction::SetBeta(on) => self.updater.set_beta(on),
+        }
+        Ok(())
     }
 }
 

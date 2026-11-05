@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use axum::Router;
 use axum::http::{HeaderValue, Method, header};
-use ns_core::{Activity, Clock, Config, EventBus, LocalDay, Timestamp};
+use ns_core::{Activity, Clock, Config, EventBus, LocalDay, NagsView, Timestamp, UpdateStatus};
 use ns_rules::{Catalog, EngineSnapshot};
 use ns_storage::StorageHandle;
 use ns_tracker::ExtEvent;
@@ -30,6 +30,28 @@ pub trait ConfigStore: Send + Sync {
     fn read(&self) -> String;
     /// Validates, saves and applies a new config file text.
     fn write(&self, text: &str) -> Result<(), String>;
+}
+
+/// An update request (`/update/*`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpdateAction {
+    Check,
+    Download,
+    Cancel,
+    Install,
+    /// "Later": hide the banner for this version.
+    Dismiss,
+    SetAuto(bool),
+    SetBeta(bool),
+}
+
+/// What the program hosting the runtime does for the API: start at login
+/// and update itself. Implemented by `ns-runtime`.
+pub trait Host: Send + Sync {
+    fn autostart(&self) -> Result<bool, String>;
+    fn set_autostart(&self, enabled: bool) -> Result<(), String>;
+    fn update_status(&self) -> UpdateStatus;
+    fn update(&self, action: UpdateAction) -> Result<(), String>;
 }
 
 #[derive(Clone)]
@@ -49,6 +71,9 @@ pub struct ApiState {
     pub backup_dir: PathBuf,
     /// The exercise catalogue (`GET /exercises`).
     pub catalog: Arc<Catalog>,
+    /// The open nags and wanted windows (`GET /nags/current`).
+    pub nags: watch::Receiver<NagsView>,
+    pub host: Arc<dyn Host>,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]

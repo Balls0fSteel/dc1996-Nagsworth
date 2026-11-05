@@ -1,59 +1,22 @@
 //! Nagsworth updating itself (`ns-update`, docs/DECISIONS.md D22): the check timer, what the
 //! dashboard's banner, Settings card and the tray menu show, the download and the setup's
-//! start. The state goes to every window as the `update-status` event ([`EVENT`]) whenever it
-//! changes; `update.check`, `update.beta` and `update.seen` live in the settings table.
+//! start. The state goes on the bus as `Event::Update` whenever it changes (the API serves it
+//! and streams it); starting the setup publishes `AppEvent::ExitForUpdate` for the host to
+//! exit. `update.check`, `update.beta` and `update.seen` live in the settings table.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use ns_core::{AppEvent, AvailableView, DownloadView, Event, EventBus, UpdateStatus};
 use ns_storage::StorageHandle;
 use ns_update::{Checker, Kind, Setup, Version};
-use serde::Serialize;
-use tauri::{AppHandle, Emitter};
 
-pub const EVENT: &str = "update-status";
 const CHECK_KEY: &str = "update.check";
 const BETA_KEY: &str = "update.beta";
 const SEEN_KEY: &str = "update.seen";
 /// How often the timer looks whether an automatic check is due.
 const TICK: Duration = Duration::from_secs(5);
-
-#[derive(Clone, Debug, Serialize)]
-pub struct AvailableView {
-    pub version: String,
-    /// The release's page, with its notes and files.
-    pub url: String,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct DownloadView {
-    pub got: u64,
-    pub total: Option<u64>,
-}
-
-/// What the dashboard shows.
-#[derive(Clone, Debug, Serialize)]
-pub struct UpdateStatus {
-    /// The running version.
-    pub current: String,
-    /// Whether this build checks at all (`NAGSWORTH_NO_UPDATE_CHECK`).
-    pub enabled: bool,
-    pub auto_check: bool,
-    pub beta: bool,
-    /// This Nagsworth was installed by the setup and can install an update itself.
-    pub can_install: bool,
-    pub checking: bool,
-    pub available: Option<AvailableView>,
-    /// The version the banner shows, until "Later".
-    pub banner: Option<String>,
-    pub download: Option<DownloadView>,
-    /// A setup is downloaded and checked: "Install and restart" works.
-    pub ready: Option<String>,
-    pub error: Option<String>,
-    /// When the last check answered, unix ms.
-    pub last_check: Option<i64>,
-}
 
 struct Inner {
     checker: Checker,
@@ -66,13 +29,13 @@ struct Inner {
     setup: Option<(Version, Setup)>,
     error: Option<String>,
     last_check: Option<i64>,
-    app: Option<AppHandle>,
 }
 
 #[derive(Clone)]
 pub struct Updater {
     inner: Arc<Mutex<Inner>>,
     storage: StorageHandle,
+    bus: EventBus,
 }
 
 fn now_ms() -> i64 {
@@ -84,7 +47,7 @@ fn now_ms() -> i64 {
 
 impl Updater {
     /// Reads the stored settings; nothing runs until [`Updater::spawn`].
-    pub fn new(storage: StorageHandle) -> Updater {
+    pub fn new(storage: StorageHandle, bus: EventBus) -> Updater {
         let get = |key: &'static str| {
             storage
                 .call_blocking(move |db| db.kv_get(key))
@@ -106,15 +69,14 @@ impl Updater {
                 setup: None,
                 error: None,
                 last_check: None,
-                app: None,
             })),
             storage,
+            bus,
         }
     }
 
     /// Starts the timer thread for the automatic checks.
-    pub fn spawn(&self, app: AppHandle) {
-        self.inner.lock().unwrap().app = Some(app);
+    pub fn spawn(&self) {
         if !ns_update::AVAILABLE {
             tracing::info!("update check: built without one");
             return;
@@ -139,15 +101,8 @@ impl Updater {
     }
 
     fn emit(&self) {
-        let (app, status) = {
-            let inner = self.inner.lock().unwrap();
-            (inner.app.clone(), inner.status())
-        };
-        if let Some(app) = app
-            && let Err(e) = app.emit(EVENT, status)
-        {
-            tracing::warn!("cannot emit {EVENT}: {e}");
-        }
+        let status = self.inner.lock().unwrap().status();
+        self.bus.publish(Event::Update(status));
     }
 
     /// "Check now" (the Settings card, the tray): a check at once, unless one is on its way.
@@ -256,22 +211,19 @@ impl Updater {
         }
     }
 
-    /// Starts the downloaded setup and exits: it waits for this process, installs over the
-    /// same folder and starts the new version.
+    /// Starts the downloaded setup and asks the host to exit: the setup waits for this
+    /// process, installs over the same folder and starts the new version.
     pub fn install(&self) -> Result<(), String> {
-        let (app, version, setup) = {
+        let (version, setup) = {
             let inner = self.inner.lock().unwrap();
-            let (v, s) = inner.setup.clone().ok_or("no setup is downloaded")?;
-            (inner.app.clone(), v, s)
+            inner.setup.clone().ok_or("no setup is downloaded")?
         };
         ns_update::run_setup(&setup).map_err(|e| {
             tracing::warn!("update: cannot start the setup: {e}");
             format!("cannot start the setup: {e}")
         })?;
         tracing::info!("update: setup for {version} started, exiting");
-        if let Some(app) = app {
-            app.exit(0);
-        }
+        self.bus.publish(Event::App(AppEvent::ExitForUpdate));
         Ok(())
     }
 

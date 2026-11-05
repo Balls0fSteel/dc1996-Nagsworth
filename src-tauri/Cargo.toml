@@ -19,7 +19,6 @@ ns-core.workspace = true
 ns-platform.workspace = true
 ns-rules.workspace = true
 ns-runtime.workspace = true
-ns-storage.workspace = true
 ns-update.workspace = true
 serde.workspace = true
 tauri.workspace = true

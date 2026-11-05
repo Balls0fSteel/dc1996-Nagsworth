@@ -413,16 +413,16 @@ export async function downloadExport(format: "csv" | "json", from: string, to: s
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/** Autostart lives in the app, not the HTTP API; `null` outside the app. */
+/** Whether the app starts at login (`/autostart`, served by the service). */
 export async function getAutostart(): Promise<boolean | null> {
-  return isTauri() ? invoke<boolean>("get_autostart") : null;
+  return request<{ enabled: boolean }>("GET", "/autostart").then((r) => r.enabled);
 }
 
 export async function setAutostart(enabled: boolean): Promise<void> {
-  await invoke("set_autostart", { enabled });
+  await request("PUT", "/autostart", { enabled });
 }
 
-// ---- Updates (src-tauri/src/update.rs); app only, like autostart ----
+// ---- Updates (`/update/*`, the service's updater) ----
 
 export interface UpdateStatus {
   current: string;
@@ -443,19 +443,119 @@ export interface UpdateStatus {
   last_check: number | null;
 }
 
-export const UPDATE_EVENT = "update-status";
-
 export async function updateStatus(): Promise<UpdateStatus | null> {
-  return isTauri() ? invoke<UpdateStatus>("update_status") : null;
+  return request<UpdateStatus>("GET", "/update");
 }
 
 export const updateApi = {
-  check: () => invoke<void>("update_check"),
-  download: () => invoke<void>("update_download"),
-  cancel: () => invoke<void>("update_cancel"),
-  install: () => invoke<void>("update_install"),
-  dismiss: () => invoke<void>("update_dismiss"),
-  setAuto: (on: boolean) => invoke<void>("update_set_auto", { on }),
-  setBeta: (on: boolean) => invoke<void>("update_set_beta", { on }),
-  openReleasePage: () => invoke<void>("update_open_release_page"),
+  check: () => request<UpdateStatus>("POST", "/update/check"),
+  download: () => request<UpdateStatus>("POST", "/update/download"),
+  cancel: () => request<UpdateStatus>("POST", "/update/cancel"),
+  install: () => request<UpdateStatus>("POST", "/update/install"),
+  dismiss: () => request<UpdateStatus>("POST", "/update/dismiss"),
+  setAuto: (on: boolean) => request<UpdateStatus>("PUT", "/update/settings", { auto_check: on }),
+  setBeta: (on: boolean) => request<UpdateStatus>("PUT", "/update/settings", { beta: on }),
+  /** A release page: through the app's opener, or a new tab in a browser. */
+  openReleasePage: async (url: string) => {
+    if (isTauri()) await invoke("open_release_page", { url });
+    else window.open(url, "_blank", "noopener");
+  },
 };
+
+// ---- Open nags (`/nags/current`) ----
+
+/** One open nag (`NagView` in ns-core). */
+export interface NagView {
+  rule_id: string;
+  rule_name: string;
+  message: string;
+  level: "toast" | "overlay" | "lock";
+  since: number;
+  break_for_ms: number | null;
+  snoozes_left: number;
+  break_until: number | null;
+  /** The exercises to suggest (docs/EXERCISES.md). */
+  routine: Routine | null;
+}
+
+/** The open nags and the windows they need (`NagsView` in ns-core). */
+export interface NagsView {
+  nags: NagView[];
+  toast: boolean;
+  overlay: boolean;
+  deferred: boolean;
+}
+
+export const nagsCurrent = () => request<NagsView>("GET", "/nags/current");
+
+// ---- Event stream (`/events`, server-sent events) ----
+
+const SSE_NL = String.fromCharCode(10);
+/** A blank line ends an event (axum writes plain LF). */
+const SSE_BREAK = SSE_NL + SSE_NL;
+
+/** One event as the service sends it: `{ source, event }`. */
+export interface StreamEvent {
+  source: string;
+  event: unknown;
+}
+
+/**
+ * Follows `/events` for the given sources until the returned function is
+ * called, reconnecting after errors. Uses fetch rather than EventSource,
+ * which cannot send the bearer token. `onOpen` runs after every (re)connect,
+ * so callers can reload state they may have missed.
+ */
+export function subscribeEvents(
+  sources: string[],
+  onEvent: (e: StreamEvent) => void,
+  onOpen?: () => void,
+): () => void {
+  let stopped = false;
+  let ctrl: AbortController | null = null;
+  const run = async () => {
+    while (!stopped) {
+      ctrl = new AbortController();
+      try {
+        const { base_url, token } = await apiInfo();
+        const res = await fetch(`${base_url}/events?sources=${sources.join(",")}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
+          signal: ctrl.signal,
+        });
+        if (!res.ok || !res.body) throw new ApiError(res.status, res.statusText);
+        onOpen?.();
+        const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buf = "";
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += value;
+          let cut;
+          while ((cut = buf.indexOf(SSE_BREAK)) >= 0) {
+            const block = buf.slice(0, cut);
+            buf = buf.slice(cut + SSE_BREAK.length);
+            const data = block
+              .split(SSE_NL)
+              .filter((l) => l.startsWith("data:"))
+              .map((l) => l.slice(5).trimStart())
+              .join(SSE_NL);
+            if (!data) continue;
+            try {
+              onEvent(JSON.parse(data) as StreamEvent);
+            } catch {
+              // Not JSON (keep-alive comments have no data); skip.
+            }
+          }
+        }
+      } catch {
+        // Service restarting or the page going away; retry below.
+      }
+      if (!stopped) await new Promise((r) => setTimeout(r, 2000));
+    }
+  };
+  void run();
+  return () => {
+    stopped = true;
+    ctrl?.abort();
+  };
+}

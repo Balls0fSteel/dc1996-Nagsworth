@@ -1,27 +1,14 @@
 <script lang="ts">
-  // The toast and overlay windows. The app opens them when a rule nags and
-  // closes them when the nag is dismissed; this page only renders the nags
-  // and sends the user's choice back.
+  // The toast and overlay windows. The app opens and closes them to match the
+  // service's nag board; this page reads the nags from the API
+  // (`/nags/current` and the event stream) and sends the user's choice back
+  // as `/control/*` requests.
   import { onDestroy, onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { invoke, isTauri } from "@tauri-apps/api/core";
   import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
   import { clock, duration } from "./lib/format";
-  import type { Routine } from "./lib/api";
+  import { api, nagsCurrent, subscribeEvents, type NagView, type NagsView } from "./lib/api";
   import Icon from "./lib/ui/Icon.svelte";
-
-  interface NagView {
-    rule_id: string;
-    rule_name: string;
-    message: string;
-    level: "toast" | "overlay" | "lock";
-    since: number;
-    break_for_ms: number | null;
-    snoozes_left: number;
-    break_until: number | null;
-    /** The exercises to suggest (docs/EXERCISES.md). */
-    routine: Routine | null;
-  }
 
   type Action = "snooze" | "skip" | "break";
 
@@ -33,7 +20,7 @@
   // Content height of the toast stack; the app sizes the window to it.
   let stackHeight = $state(0);
   let reported = 0;
-  let unlisten: UnlistenFn | undefined;
+  let unsubscribe: (() => void) | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
 
   // The overlay shows overlay-level nags and the one running break (the app
@@ -108,12 +95,12 @@
   let audio: AudioContext | null = null;
   let lastStep: string | null = null;
   // The page's mode never changes, so reading the label once is right.
-  const ticks = getCurrentWebviewWindow().label === "overlay-0";
+  const ticks = isTauri() && getCurrentWebviewWindow().label === "overlay-0";
 
   async function loadPrefs() {
     if (!ticks) return;
     try {
-      stepSound = (await invoke<{ step_sound: boolean }>("nag_prefs")).step_sound;
+      stepSound = (await api.exercises()).config.step_sound;
     } catch {
       stepSound = false;
     }
@@ -157,7 +144,9 @@
     if (busy) return;
     busy = true;
     try {
-      await invoke("nag_action", { ruleId: rule_id, action });
+      if (action === "snooze") await api.snooze(rule_id);
+      else if (action === "skip") await api.skip(rule_id);
+      else await api.startBreak(rule_id);
     } finally {
       busy = false;
     }
@@ -179,17 +168,29 @@
   }
 
   onMount(async () => {
-    nags = await invoke<NagView[]>("current_nags");
+    const reload = async () => {
+      try {
+        nags = (await nagsCurrent()).nags;
+      } catch {
+        // The stream reconnects and reloads.
+      }
+    };
+    await reload();
     await loadPrefs();
-    unlisten = await listen<NagView[]>("nags-changed", (e) => {
-      nags = e.payload;
-      void loadPrefs();
-    });
+    unsubscribe = subscribeEvents(
+      ["nags"],
+      (e) => {
+        if (e.source !== "nags") return;
+        nags = (e.event as NagsView).nags;
+        void loadPrefs();
+      },
+      () => void reload(),
+    );
     timer = setInterval(() => (now = Date.now()), 500);
   });
 
   onDestroy(() => {
-    unlisten?.();
+    unsubscribe?.();
     clearInterval(timer);
     void audio?.close();
   });

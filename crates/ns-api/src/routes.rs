@@ -5,7 +5,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::{StatusCode, header};
 use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, patch, post};
+use axum::routing::{get, patch, post, put};
 use axum::{Json, Router, middleware};
 use ns_core::config::StoreUrl;
 use ns_core::{Activity, CategoryKind, ControlCommand, Event, LocalDay, SegmentKind, Timestamp};
@@ -65,6 +65,15 @@ pub fn routes(state: ApiState) -> Router<ApiState> {
         .route("/rules", get(get_rules).put(put_rules))
         .route("/exercises", get(get_exercises))
         .route("/nags", get(list_nags))
+        .route("/nags/current", get(current_nags))
+        .route("/autostart", get(get_autostart).put(put_autostart))
+        .route("/update", get(update_status))
+        .route("/update/check", post(update_check))
+        .route("/update/download", post(update_download))
+        .route("/update/cancel", post(update_cancel))
+        .route("/update/install", post(update_install))
+        .route("/update/dismiss", post(update_dismiss))
+        .route("/update/settings", put(update_settings))
         .route("/export", get(export))
         .route("/backup", post(backup))
         .route("/events", get(events))
@@ -561,13 +570,109 @@ async fn list_nags(State(s): State<ApiState>, Query(q): Query<NagQuery>) -> ApiR
     Ok(Json(json!({ "nags": nags })))
 }
 
+async fn current_nags(State(s): State<ApiState>) -> Json<ns_core::NagsView> {
+    Json(s.nags.borrow().clone())
+}
+
+// ---- host: autostart and updates ----
+
+fn host_err(e: String) -> ApiError {
+    ApiError(StatusCode::CONFLICT, e)
+}
+
+async fn get_autostart(State(s): State<ApiState>) -> ApiResult<Value> {
+    let enabled = s.host.autostart().map_err(host_err)?;
+    Ok(Json(json!({ "enabled": enabled })))
+}
+
+#[derive(Deserialize)]
+struct AutostartBody {
+    enabled: bool,
+}
+
+async fn put_autostart(
+    State(s): State<ApiState>,
+    Json(b): Json<AutostartBody>,
+) -> ApiResult<Value> {
+    s.host.set_autostart(b.enabled).map_err(host_err)?;
+    let enabled = s.host.autostart().map_err(host_err)?;
+    Ok(Json(json!({ "enabled": enabled })))
+}
+
+async fn update_status(State(s): State<ApiState>) -> Json<ns_core::UpdateStatus> {
+    Json(s.host.update_status())
+}
+
+fn update_action(s: &ApiState, a: crate::UpdateAction) -> ApiResult<ns_core::UpdateStatus> {
+    s.host.update(a).map_err(host_err)?;
+    Ok(Json(s.host.update_status()))
+}
+
+async fn update_check(State(s): State<ApiState>) -> ApiResult<ns_core::UpdateStatus> {
+    update_action(&s, crate::UpdateAction::Check)
+}
+
+async fn update_download(State(s): State<ApiState>) -> ApiResult<ns_core::UpdateStatus> {
+    update_action(&s, crate::UpdateAction::Download)
+}
+
+async fn update_cancel(State(s): State<ApiState>) -> ApiResult<ns_core::UpdateStatus> {
+    update_action(&s, crate::UpdateAction::Cancel)
+}
+
+async fn update_install(State(s): State<ApiState>) -> ApiResult<ns_core::UpdateStatus> {
+    update_action(&s, crate::UpdateAction::Install)
+}
+
+async fn update_dismiss(State(s): State<ApiState>) -> ApiResult<ns_core::UpdateStatus> {
+    update_action(&s, crate::UpdateAction::Dismiss)
+}
+
+#[derive(Deserialize)]
+struct UpdateSettings {
+    auto_check: Option<bool>,
+    beta: Option<bool>,
+}
+
+async fn update_settings(
+    State(s): State<ApiState>,
+    Json(b): Json<UpdateSettings>,
+) -> ApiResult<ns_core::UpdateStatus> {
+    if let Some(on) = b.auto_check {
+        s.host
+            .update(crate::UpdateAction::SetAuto(on))
+            .map_err(host_err)?;
+    }
+    if let Some(on) = b.beta {
+        s.host
+            .update(crate::UpdateAction::SetBeta(on))
+            .map_err(host_err)?;
+    }
+    Ok(Json(s.host.update_status()))
+}
+
 // ---- live events ----
+
+#[derive(Deserialize)]
+struct EventsQuery {
+    /// Comma-separated `source` tags (`nags,update,app`); all when absent.
+    sources: Option<String>,
+}
 
 async fn events(
     State(s): State<ApiState>,
+    Query(q): Query<EventsQuery>,
 ) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
-    let stream = BroadcastStream::new(s.bus.subscribe()).filter_map(|e| {
+    let only: Option<Vec<String>> = q
+        .sources
+        .map(|v| v.split(',').map(|x| x.trim().to_string()).collect());
+    let stream = BroadcastStream::new(s.bus.subscribe()).filter_map(move |e| {
         let e = e.ok()?;
+        if let Some(only) = &only
+            && !only.iter().any(|x| x == e.source())
+        {
+            return None;
+        }
         let data = serde_json::to_string(&e).ok()?;
         Some(Ok(SseEvent::default().data(data)))
     });

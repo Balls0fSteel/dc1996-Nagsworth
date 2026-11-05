@@ -1,29 +1,37 @@
-// The app's update state, shared by the shell's banner and the Settings card.
-// Inside the app it comes from the `update_status` command and the
-// `update-status` event; in a plain browser it stays `null`.
+// The update state, shared by the shell's banner and the Settings card. It
+// comes from the service (`/update`) and follows the event stream's `update`
+// events, so it works the same in the app and in a plain browser.
 
-import { isTauri } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { UPDATE_EVENT, updateApi, updateStatus, type UpdateStatus } from "./api";
+import { subscribeEvents, updateApi, updateStatus, type UpdateStatus } from "./api";
 import { notify } from "./notify.svelte";
 
 let status = $state<UpdateStatus | null>(null);
 let started = false;
 
-async function start() {
-  if (started || !isTauri()) return;
-  started = true;
+async function reload() {
   try {
-    await listen<UpdateStatus>(UPDATE_EVENT, (e) => (status = e.payload));
     status = await updateStatus();
-  } catch (e) {
-    notify.err(e);
+  } catch {
+    // The service is not answering; the stream reconnects and reloads.
   }
 }
 
-async function run(action: () => Promise<void>, done?: string) {
+function start() {
+  if (started) return;
+  started = true;
+  subscribeEvents(
+    ["update"],
+    (e) => {
+      if (e.source === "update") status = e.event as UpdateStatus;
+    },
+    () => void reload(),
+  );
+}
+
+async function run(action: () => Promise<unknown>, done?: string) {
   try {
-    await action();
+    const next = await action();
+    if (next && typeof next === "object" && "current" in next) status = next as UpdateStatus;
     if (done) notify.ok(done);
   } catch (e) {
     notify.err(e);
@@ -42,7 +50,10 @@ export const updates = {
   install: () => run(updateApi.install),
   dismiss: () => run(updateApi.dismiss),
   setAuto: (on: boolean) =>
-    run(updateApi.setAuto.bind(null, on), on ? "Checks for updates twice a day" : "No automatic update checks"),
-  setBeta: (on: boolean) => run(updateApi.setBeta.bind(null, on)),
-  openReleasePage: () => run(updateApi.openReleasePage),
+    run(() => updateApi.setAuto(on), on ? "Checks for updates twice a day" : "No automatic update checks"),
+  setBeta: (on: boolean) => run(() => updateApi.setBeta(on)),
+  openReleasePage: () => {
+    const url = status?.available?.url;
+    return url ? run(() => updateApi.openReleasePage(url)) : Promise.resolve();
+  },
 };

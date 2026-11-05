@@ -26,6 +26,44 @@ impl ConfigStore for MemConfig {
     }
 }
 
+/// Records host calls; autostart is a plain flag.
+#[derive(Default)]
+struct MemHost {
+    autostart: Mutex<bool>,
+    actions: Mutex<Vec<UpdateAction>>,
+}
+
+impl Host for MemHost {
+    fn autostart(&self) -> Result<bool, String> {
+        Ok(*self.autostart.lock().unwrap())
+    }
+
+    fn set_autostart(&self, enabled: bool) -> Result<(), String> {
+        *self.autostart.lock().unwrap() = enabled;
+        Ok(())
+    }
+
+    fn update_status(&self) -> ns_core::UpdateStatus {
+        ns_core::UpdateStatus {
+            current: "0.1.0".into(),
+            beta: self
+                .actions
+                .lock()
+                .unwrap()
+                .contains(&UpdateAction::SetBeta(true)),
+            ..Default::default()
+        }
+    }
+
+    fn update(&self, action: UpdateAction) -> Result<(), String> {
+        if action == UpdateAction::Install {
+            return Err("no setup is downloaded".into());
+        }
+        self.actions.lock().unwrap().push(action);
+        Ok(())
+    }
+}
+
 struct Fixture {
     app: Router,
     token: String,
@@ -34,6 +72,8 @@ struct Fixture {
     _engine: watch::Sender<EngineSnapshot>,
     _activity: watch::Sender<Activity>,
     storage: StorageHandle,
+    nags: watch::Sender<ns_core::NagsView>,
+    host: Arc<MemHost>,
 }
 
 fn fixture() -> Fixture {
@@ -43,6 +83,8 @@ fn fixture() -> Fixture {
     let (etx, erx) = watch::channel(EngineSnapshot::default());
     let (atx, arx) = watch::channel(Activity::default());
     let storage = StorageHandle::open_in_memory().unwrap();
+    let (ntx, nrx) = watch::channel(ns_core::NagsView::default());
+    let host = Arc::new(MemHost::default());
     let state = ApiState {
         storage: storage.clone(),
         bus: bus.clone(),
@@ -58,6 +100,8 @@ fn fixture() -> Fixture {
         ext_clients: Arc::default(),
         backup_dir: std::env::temp_dir().join(format!("ns-api-backup-{}", std::process::id())),
         catalog: Arc::new(ns_rules::Catalog::builtin()),
+        nags: nrx,
+        host: host.clone(),
     };
     Fixture {
         app: router(state),
@@ -67,6 +111,8 @@ fn fixture() -> Fixture {
         _engine: etx,
         _activity: atx,
         storage,
+        nags: ntx,
+        host,
     }
 }
 
@@ -339,4 +385,90 @@ async fn breaks_count_completed_and_ended_early() {
     assert_eq!(t["with_exercises_completed"], 1);
     assert_eq!(body["days"].as_array().unwrap().len(), 1);
     assert_eq!(body["days"][0]["started"], 3);
+}
+
+fn put(path: &str, token: Option<&str>, body: Value) -> Request<Body> {
+    let mut b = Request::put(path).header(header::CONTENT_TYPE, "application/json");
+    if let Some(t) = token {
+        b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
+    }
+    b.body(Body::from(body.to_string())).unwrap()
+}
+
+#[tokio::test]
+async fn current_nags_autostart_and_updates() {
+    let f = fixture();
+    let (s, body) = send(&f.app, get("/v1/nags/current", Some(&f.token))).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(body["nags"].as_array().unwrap().len(), 0);
+    assert_eq!(body["overlay"], false);
+    f.nags.send_replace(ns_core::NagsView {
+        nags: vec![ns_core::NagView {
+            rule_id: "r".into(),
+            rule_name: "R".into(),
+            message: "m".into(),
+            level: ns_core::NagLevel::Overlay,
+            since: 1,
+            break_for_ms: Some(1000),
+            snoozes_left: 0,
+            break_until: Some(5),
+            routine: None,
+        }],
+        toast: false,
+        overlay: true,
+        deferred: false,
+    });
+    let (_, body) = send(&f.app, get("/v1/nags/current", Some(&f.token))).await;
+    assert_eq!(body["nags"][0]["rule_id"], "r");
+    assert_eq!(body["overlay"], true);
+
+    let (s, body) = send(&f.app, get("/v1/autostart", Some(&f.token))).await;
+    assert_eq!((s, &body["enabled"]), (StatusCode::OK, &json!(false)));
+    let (s, body) = send(
+        &f.app,
+        put("/v1/autostart", Some(&f.token), json!({ "enabled": true })),
+    )
+    .await;
+    assert_eq!((s, &body["enabled"]), (StatusCode::OK, &json!(true)));
+    let (s, _) = send(&f.app, get("/v1/autostart", None)).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+
+    let (s, body) = send(&f.app, get("/v1/update", Some(&f.token))).await;
+    assert_eq!((s, &body["current"]), (StatusCode::OK, &json!("0.1.0")));
+    for path in ["check", "download", "cancel", "dismiss"] {
+        let (s, _) = send(
+            &f.app,
+            post(&format!("/v1/update/{path}"), Some(&f.token), json!({})),
+        )
+        .await;
+        assert_eq!(s, StatusCode::OK, "{path}");
+    }
+    let (s, body) = send(
+        &f.app,
+        post("/v1/update/install", Some(&f.token), json!({})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::CONFLICT);
+    assert_eq!(body["error"], "no setup is downloaded");
+    let (s, body) = send(
+        &f.app,
+        put(
+            "/v1/update/settings",
+            Some(&f.token),
+            json!({ "beta": true, "auto_check": false }),
+        ),
+    )
+    .await;
+    assert_eq!((s, &body["beta"]), (StatusCode::OK, &json!(true)));
+    assert_eq!(
+        *f.host.actions.lock().unwrap(),
+        vec![
+            UpdateAction::Check,
+            UpdateAction::Download,
+            UpdateAction::Cancel,
+            UpdateAction::Dismiss,
+            UpdateAction::SetAuto(false),
+            UpdateAction::SetBeta(true),
+        ]
+    );
 }

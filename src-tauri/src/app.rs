@@ -1,21 +1,18 @@
 //! Tauri setup: single instance, tray, hidden main window that closes to the
 //! tray, nag windows, and runtime shutdown on quit.
 
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Mutex;
 
-use ns_core::config::Config;
-use ns_core::{Activity, ControlCommand, Event, EventBus};
-use ns_platform::Platform;
+use ns_core::{Activity, ControlCommand, Event, EventBus, NagsView};
 use ns_rules::EngineSnapshot;
 use tauri::{Manager, RunEvent, WindowEvent};
 use tokio::sync::watch;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 
-use crate::nag_bridge::NagBridge;
-use crate::update::Updater;
-use crate::{commands, tray, windows};
 use ns_runtime::Runtime;
+
+use crate::{commands, nag_bridge, tray, windows};
 
 /// What commands and the tray need from the runtime.
 pub struct AppCtx {
@@ -24,8 +21,8 @@ pub struct AppCtx {
     pub base_url: Option<String>,
     pub activity: watch::Receiver<Activity>,
     pub engine: watch::Receiver<EngineSnapshot>,
-    pub platform: Arc<dyn Platform>,
-    pub config: Arc<RwLock<Config>>,
+    /// The service's nag board, for the tray tooltip.
+    pub nags: watch::Receiver<NagsView>,
 }
 
 impl AppCtx {
@@ -85,15 +82,11 @@ pub fn run() {
         base_url: runtime.api_base_url(),
         activity: runtime.activity.clone(),
         engine: runtime.engine.clone(),
-        platform: platform.clone(),
-        config: runtime.config.clone(),
+        nags: runtime.nags.clone(),
     };
     let bus = runtime.bus.clone();
-    let engine = runtime.engine.clone();
-    let bridge_platform = platform;
-    let bridge = NagBridge::default();
-    let updater = Updater::new(runtime.storage.clone());
-    let updater_for_setup = updater.clone();
+    let nags = runtime.nags.clone();
+    let updater = runtime.updater.clone();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -101,27 +94,13 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .manage(ctx)
-        .manage(bridge.clone())
         .manage(updater)
         .manage(RuntimeSlot(Mutex::new(Some(runtime))))
         .invoke_handler(tauri::generate_handler![
             commands::get_api_info,
-            commands::current_nags,
-            commands::nag_action,
-            commands::nag_prefs,
             commands::open_dashboard,
             commands::resize_toast,
-            commands::get_autostart,
-            commands::set_autostart,
-            commands::update_status,
-            commands::update_check,
-            commands::update_download,
-            commands::update_cancel,
-            commands::update_install,
-            commands::update_dismiss,
-            commands::update_set_auto,
-            commands::update_set_beta,
-            commands::update_open_release_page,
+            commands::open_release_page,
         ])
         .setup(move |app| {
             // Without a tray (no Explorer, another desktop) the dashboard is
@@ -130,8 +109,8 @@ pub fn run() {
                 && tray::create(app.handle())
                     .inspect_err(|e| tracing::warn!("no tray icon: {e}"))
                     .is_ok();
-            bridge.spawn(app.handle().clone(), &bus, engine, bridge_platform);
-            updater_for_setup.spawn(app.handle().clone());
+            nag_bridge::spawn(app.handle().clone(), nags);
+            nag_bridge::spawn_exit_watch(app.handle().clone(), &bus);
             if !start_hidden || !tray_ok {
                 windows::show_dashboard(app.handle());
             }

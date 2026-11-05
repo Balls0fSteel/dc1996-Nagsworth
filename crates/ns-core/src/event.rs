@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
 use crate::types::{CategoryKind, SegmentKind, Timestamp};
+use crate::view::{AppEvent, NagsView, UpdateStatus};
 
 /// An app as the tracker knows it after categorization.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,6 +220,27 @@ pub enum Event {
     Nag(NagEvent),
     Session(SessionEvent),
     Control(ControlCommand),
+    /// The open nags changed (the service's nag board).
+    Nags(NagsView),
+    /// The update state changed.
+    Update(UpdateStatus),
+    App(AppEvent),
+}
+
+impl Event {
+    /// The `source` tag on the event stream, for `/events?sources=`.
+    pub fn source(&self) -> &'static str {
+        match self {
+            Event::Tracker(_) => "tracker",
+            Event::Web(_) => "web",
+            Event::Nag(_) => "nag",
+            Event::Session(_) => "session",
+            Event::Control(_) => "control",
+            Event::Nags(_) => "nags",
+            Event::Update(_) => "update",
+            Event::App(_) => "app",
+        }
+    }
 }
 
 /// Fan-out bus for [`Event`]s. Slow subscribers lose old events rather than

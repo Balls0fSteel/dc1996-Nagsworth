@@ -5,7 +5,6 @@ mod app;
 mod commands;
 mod nag_bridge;
 mod tray;
-mod update;
 mod windows;
 
 fn main() {

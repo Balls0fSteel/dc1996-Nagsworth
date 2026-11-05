@@ -15,8 +15,8 @@ specific to this project. Read [PLAN.md](PLAN.md) and
 | `ns-rules` | `crates/ns-rules` | `RuleSet` (TOML), `Engine` (pure state machine), `EngineTask`. |
 | `ns-api` | `crates/ns-api` | axum router on `127.0.0.1:47821/v1`, bearer auth, pairing, SSE. |
 | `ns-update` | `crates/ns-update` | Update check (GitHub releases API), `Checker`, setup download checked against `SHA256SUMS`, Windows install detection and the silent setup start. |
-| `ns-runtime` | `crates/ns-runtime` | Composition root (`Runtime::start`): every tracking, rules, storage and API task on one tokio runtime, side effects, retention. No UI dependency; hosted by `ns-app` now and by `nagsworthd` later (docs/HEADLESS.md). |
-| `ns-app` | `src-tauri` | Tauri shell hosting `ns-runtime`: `nag_bridge.rs`, `update.rs`, `tray.rs`, `windows.rs`, `commands.rs`; `windows/hooks.nsh` for the installer. |
+| `ns-runtime` | `crates/ns-runtime` | Composition root (`Runtime::start`): every tracking, rules, storage and API task on one tokio runtime, side effects, retention; `nag_board.rs` (open nags, wanted windows, fullscreen deferral) and `update.rs` (the updater). No UI dependency; hosted by `ns-app` now and by `nagsworthd` later (docs/HEADLESS.md). |
+| `ns-app` | `src-tauri` | Tauri shell hosting `ns-runtime`: `nag_bridge.rs` (opens and closes nag windows from the board), `tray.rs`, `windows.rs`, `commands.rs` (window-only commands); `windows/hooks.nsh` for the installer. |
 | UI | `ui/` | Svelte 5 + TS + Vite, pages `index`, `toast`, `overlay`, `pair`. |
 | Extension | `extension/` | MV3, TS, built by `scripts/build.mjs` into `dist/chrome` and `dist/firefox`. |
 
@@ -37,7 +37,9 @@ under `ns-app`. Nothing below `ns-app` may depend on Tauri.
   Keep `Segmenter`, `WebSegmenter` and `Engine` pure; I/O lives in their
   `*Task` wrappers.
 - Tauri's runtime and the tracking runtime only meet through channels
-  (`nag_bridge.rs`, commands reading watch channels).
+  (`nag_bridge.rs` and the tray read watch channels and the bus). Pages talk
+  to the service only through `/v1` (and its event stream); a Tauri command
+  is only for what needs the window system (docs/HEADLESS.md).
 - Edition 2024, `cargo fmt`, clippy clean (`--all-targets`).
 
 ## Build, run, test

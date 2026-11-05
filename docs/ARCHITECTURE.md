@@ -88,10 +88,13 @@ releases JSON), `Checker` (when to check, what to show, which banner was
 dismissed), `download_setup` (the setup and `SHA256SUMS`, hash-checked,
 written as `.part` and renamed) and, on Windows, `installed` (the Settings >
 Apps entry names this folder) and `run_setup` (the file locked and re-hashed,
-then `/S /UPDATE /R /WAITPID=<pid> /ARGS --hidden`). `src-tauri/src/update.rs`
+then `/S /UPDATE /R /WAITPID=<pid> /ARGS --hidden`). `ns_runtime::update`
 owns the state, runs the timer and the downloads on threads, persists the
-three `update.*` settings and pushes an `update-status` event to the
-windows; the tray item and the dashboard's banner and Settings card read it.
+three `update.*` settings and publishes `Event::Update` on the bus; the API
+serves it as `GET /update` (actions under `/update/*`) and streams it, the
+dashboard's banner and Settings card follow that, and the tray reads the
+`Updater` in-process. Starting the setup publishes `AppEvent::ExitForUpdate`,
+on which the app exits.
 
 ## Rules
 
@@ -149,24 +152,28 @@ habits`. `SkipBreak` during a running break ends it with
 row with the next dismiss of its rule (by row id) and counts started,
 completed (`break_taken`), ended early and breaks with a routine per local
 day, for the History "Breaks" card. The overlay's step tick
-(`[exercises] step_sound`, read through the `nag_prefs` command) plays in
+(`[exercises] step_sound`, read from `GET /exercises`) plays in
 the `overlay-0` window only.
 
 ## Nag windows
 
-`nag_bridge.rs` keeps the open nags from the bus and reconciles windows: a
-toast (bottom-right of the primary work area, does not take focus) for
-toast-level nags, and one undecorated, always-on-top overlay per monitor for
-overlay/lock-level nags and running breaks. Windows fetch the list with the
-`current_nags` command, follow `nags-changed` events, and answer with
-`nag_action` (snooze, skip, break). During a break the overlay walks the
+`ns_runtime::nag_board` keeps the open nags from the bus (seeded from the
+engine snapshot at start) and decides the windows: a toast (bottom-right of
+the primary work area, does not take focus) for toast-level nags, and one
+undecorated, always-on-top overlay per monitor for overlay/lock-level nags
+and running breaks. It publishes a `NagsView` (nags plus `toast`,
+`overlay`, `deferred`) on a watch channel and as `Event::Nags`.
+`src-tauri/src/nag_bridge.rs` only opens and closes the windows to match.
+The pages read `GET /nags/current`, follow the `nags` events on
+`/events?sources=nags` (fetch streaming, since EventSource cannot send the
+token), and answer with `/control/{snooze,skip,break/start}`. During a break the overlay walks the
 routine's steps on their own seconds (Space or "Next" jumps ahead); the
 engine's break timer stays the truth and the steps are only a view on it. The `lock` level is applied by the
 runtime (`LockWorkStation`), not by a window.
 
 While an exclusive-fullscreen game or a presentation owns the screen
 (`SHQueryUserNotificationState`), topmost windows would stay invisible, so
-overlays wait: the bridge beeps once, the tray tooltip names the nag, and the
+overlays wait: the board beeps once, the tray tooltip names the nag, and the
 overlay opens as soon as the app leaves exclusive mode (rechecked every
 second).
 
