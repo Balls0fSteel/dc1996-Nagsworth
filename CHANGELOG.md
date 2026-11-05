@@ -2,6 +2,14 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-05_091205_1793869925: Headless-first decided
+
+- The owner took all five proposals in docs/HEADLESS.md: the service owns
+  the tray, toasts go to OS notifications and overlays start the GUI when
+  it is closed, one installer, `nagsworthd` + `nagsworth`, and v0.1.0 is
+  tagged first with phases 1-2 next and the split in 0.2.0. Recorded as
+  D26 in docs/DECISIONS.md; PLAN.md step 7 updated.
+
 ## 2026-11-04_232332_1793834612: Break completion tracking, step tick, habits; headless brief
 
 - Fix: Esc ("end the break early") during a running break did nothing: the

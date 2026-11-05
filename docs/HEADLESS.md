@@ -1,7 +1,10 @@
 # Headless-first: a tracking service with the GUI as its official client
 
-Drafted 2026-11-04_232332_1793834612. Status: proposal, nothing built. The
-open questions at the end need the owner's answers before work starts.
+Drafted 2026-11-04_232332_1793834612. Status: nothing built. The
+open questions at the end were decided 2026-11-05_091205_1793869925: all five as proposed
+(service owns the tray; OS notifications for toasts and the GUI started
+for overlays; one installer; `nagsworthd` next to `nagsworth`; tag v0.1.0
+first, phases 1-2 next, the split in 0.2.0). Recorded as D26.
 Read AGENTS.md, PLAN.md, docs/ARCHITECTURE.md and docs/DECISIONS.md (D2)
 first.
 
@@ -185,7 +188,7 @@ and both installers), 4 and 5 are independent and can wait.
   libayatana-appindicator, so `nagsworthd` is not usable on a machine
   without them; a `--no-tray` build feature keeps a truly headless variant.
 
-## Open questions for the owner
+## Open questions (decided 2026-11-05_091205_1793869925: all as proposed)
 
 1. **Who owns the tray?** (a) The service, through the `tray-icon` crate
    (no webview; the menu opens the GUI), so the tray is there whenever

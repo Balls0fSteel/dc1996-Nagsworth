@@ -408,9 +408,10 @@ catalogue file is read at start only.
    the tick has not been heard yet. The user catalogue file is still read
    at start only (docs/BACKLOG.md).
 7. Headless-first (docs/HEADLESS.md, 2026-11-04_232332_1793834612): a per-user service
-   `nagsworthd` with the GUI as its official client, in five phases. The
-   owner's answers to its open questions (tray owner, nags without the GUI,
-   installer, names, order) come first.
+   `nagsworthd` with the GUI as its official client, in five phases.
+   Decided 2026-11-05_091205_1793869925 (D26), all as proposed: after the v0.1.0 tag
+   (step 4a), phase 1 (extract `ns-runtime`) and phase 2 (nag board and
+   endpoints, GUI as client); the split (phase 3) is 0.2.0.
 
 ## Risks and open questions
 
@@ -436,5 +437,4 @@ catalogue file is read at start only.
 - **Decided 2026-11-04_231240_1793833960**: `lock` is never on in a default rule (opt-in
   only); the extension's store identity (gecko id, listing name) is part of
   the name check in next step 4.
-- **Headless** (2026-11-04_232332_1793834612): wanted, headless-first with the GUI as a client;
-  proposal and open questions in docs/HEADLESS.md.
+- **Headless**: decided 2026-11-05_091205_1793869925 (D26, docs/HEADLESS.md).
