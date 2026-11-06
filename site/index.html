@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nagsworth: a polite butler for your PC</title>
+<meta name="description" content="Nagsworth tracks app, game and website time on your own PC and nags you to take breaks, from a gentle toast to a fullscreen overlay. Local-only, for Windows and Linux.">
+<meta property="og:title" content="Nagsworth">
+<meta property="og:description" content="A polite butler for your PC: activity tracking and break reminders that stay on your machine.">
+<meta property="og:image" content="https://balls0fsteel.github.io/dc1996-Nagsworth/icon.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-row">
+    <a class="brand" href="#"><img src="favicon.png" width="22" height="22" alt=""> Nagsworth</a>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#nags">Nags</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#get">Get it</a>
+      <a class="gh" href="https://github.com/Balls0fSteel/dc1996-Nagsworth">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Activity tracker + break nagger</p>
+      <h1>A polite butler for your PC.</h1>
+      <p class="lead">Nagsworth keeps a note of your hours (apps, games, websites)
+        and clears his throat when it is time for a break. Think of a modern,
+        app-aware Workrave that also knows how long you have been gaming.</p>
+      <div class="cta">
+        <a class="btn primary" href="#get">Get Nagsworth</a>
+        <a class="btn" href="https://github.com/Balls0fSteel/dc1996-Nagsworth">Source on GitHub</a>
+      </div>
+      <p class="meta">Windows &middot; Linux (X11, wlroots Wayland) &middot; Chrome, Edge, Firefox extension &middot; Rust + Tauri</p>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+      <div class="toast">
+        <div class="toast-head"><img src="favicon.png" width="18" height="18" alt=""> Nagsworth <span class="pill">Break due</span></div>
+        <p class="toast-title">Time for a break</p>
+        <p class="toast-text">50 minutes at the keyboard. Stand up and walk for two minutes, then roll your shoulders.</p>
+        <div class="toast-bar"><span style="width:100%"></span></div>
+        <div class="toast-actions"><span class="btn sm primary">Start break</span><span class="btn sm">Snooze 5 min</span><span class="btn sm ghost">Skip</span></div>
+      </div>
+      <div class="limits">
+        <div class="limit"><span>Gaming today</span><span class="num">1 h 42 / 2 h</span></div>
+        <div class="bar warn"><span style="width:85%"></span></div>
+        <div class="limit"><span>Work since last break</span><span class="num">50 / 50 min</span></div>
+        <div class="bar danger"><span style="width:100%"></span></div>
+        <div class="limit"><span>Web today</span><span class="num">38 min</span></div>
+        <div class="bar"><span style="width:32%"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="section">
+  <div class="wrap">
+    <h2>What it does</h2>
+    <div class="grid">
+      <article class="card">
+        <h3>Tracks your time</h3>
+        <p>Which app is in front and for how long, with idle, lock and sleep detection.
+          Steam, launcher folders and a list of known games tell gaming apart from work;
+          your own categories do the rest.</p>
+      </article>
+      <article class="card">
+        <h3>Knows your websites</h3>
+        <p>A small browser extension reports the active tab to the app on your machine,
+          so web time shows per site. A toolbar popup shows today's top sites and your
+          rules' progress.</p>
+      </article>
+      <article class="card">
+        <h3>Nags like Workrave, only smarter</h3>
+        <p>Interval breaks and micro-breaks, reading mode, daily limits per category
+          ("2 h of gaming"), continuous-use limits and schedules
+          ("no gaming 23:00&ndash;06:00").</p>
+      </article>
+      <article class="card">
+        <h3>Counts hands-on time</h3>
+        <p>A gaming limit burns only the seconds after a key press, mouse move or
+          controller input. Two hours in front of a game with one hour of actual play
+          costs one hour of the budget.</p>
+      </article>
+      <article class="card">
+        <h3>Fills the break</h3>
+        <p>Each break suggests exercises that fit its length and how long you have been
+          sitting: a walk, neck work, eye breaks, breathing. 28 items, each with the
+          evidence behind it, rotated so routines vary. Not medical advice.</p>
+      </article>
+      <article class="card">
+        <h3>A dashboard worth opening</h3>
+        <p>Today, History, Apps, Web, Rules and Settings in one window from the tray.
+          Rules are TOML, editable in the app, validated and applied without a restart.
+          Export to CSV or JSON any time.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="nags" class="section alt">
+  <div class="wrap">
+    <h2>Escalation, politely</h2>
+    <p class="sub">Each rule climbs a ladder you choose. Ignore the butler long enough and he stops whispering.</p>
+    <ol class="ladder">
+      <li>
+        <span class="step">1</span>
+        <h3>Toast</h3>
+        <p>A small card in the corner with the reason, a countdown and buttons to start
+          the break, snooze or skip.</p>
+      </li>
+      <li>
+        <span class="step">2</span>
+        <h3>Overlay</h3>
+        <p>A fullscreen overlay on every monitor with the break's exercises, step by step.
+          It waits if a game is in exclusive fullscreen.</p>
+      </li>
+      <li>
+        <span class="step">3</span>
+        <h3>Lock <small>(opt-in)</small></h3>
+        <p>Locks the workstation with the operating system's own lock. Off in the shipped
+          rules; you turn it on per rule.</p>
+      </li>
+    </ol>
+
+<pre class="code"><code><span class="c"># config.toml: two hours of gaming a day</span>
+[[rules]]
+id = <span class="s">"gaming-daily"</span>
+name = <span class="s">"Gaming limit"</span>
+scope = { category = <span class="s">"Game"</span> }
+trigger = { kind = <span class="s">"daily_total"</span>, limit = <span class="s">"2h"</span>, renag_every = <span class="s">"15m"</span> }
+escalation = [ { after = <span class="s">"0s"</span>, level = <span class="s">"toast"</span> },
+               { after = <span class="s">"10m"</span>, level = <span class="s">"overlay"</span> } ]</code></pre>
+  </div>
+</section>
+
+<section id="privacy" class="section">
+  <div class="wrap two-col">
+    <div>
+      <h2>Everything stays on your machine</h2>
+      <p class="sub">Nagsworth is a tool for you, about you, on your own PC. Nothing is sent anywhere.</p>
+    </div>
+    <ul class="checks">
+      <li><strong>One SQLite file</strong> in your user folder
+        (<code>%LOCALAPPDATA%\nagsworth</code>, <code>~/.local/share/nagsworth</code>).</li>
+      <li><strong>A local API</strong> bound to <code>127.0.0.1</code> with a bearer token;
+        the extension pairs with a code you read off the dashboard.</li>
+      <li><strong>No global hooks, no injection,</strong> no reading other processes' memory.
+        It polls documented OS APIs, which keeps antivirus tools calm.</li>
+      <li><strong>Your data, your formats:</strong> CSV/JSON export and database backups from Settings.</li>
+      <li><strong>The only network call</strong> is an optional update check against this
+        project's GitHub releases, which you can switch off.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap">
+    <h2>Where it runs</h2>
+    <div class="grid three">
+      <article class="card">
+        <h3>Windows</h3>
+        <p>Tray app with an installer that updates itself: it downloads the new setup,
+          checks it against the release's <code>SHA256SUMS</code> and restarts in a few
+          seconds. Controller input through XInput.</p>
+      </article>
+      <article class="card">
+        <h3>Linux</h3>
+        <p><code>.deb</code> and AppImage. EWMH on X11 and XWayland,
+          <code>wlr-foreign-toplevel</code> on Sway and Hyprland, lock and sleep from
+          systemd-logind. GNOME on Wayland hides the focused window, so only X clients
+          are tracked there.</p>
+      </article>
+      <article class="card">
+        <h3>Browsers</h3>
+        <p>Chrome 102+, Edge, Brave, Opera, Vivaldi and Firefox 140+. The extension talks
+          only to the app on <code>127.0.0.1</code> and can forget everything with one button.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="get" class="section">
+  <div class="wrap">
+    <h2>Get it</h2>
+    <p class="sub">Nagsworth is in early development (0.1). Installers for Windows and Linux
+      appear on the releases page as soon as the first one is out; until then, build it
+      from source.</p>
+    <div class="two-col get">
+      <div class="card">
+        <h3>Download</h3>
+        <p>Windows setup, <code>.deb</code>, AppImage and the extension packages, each with
+          checksums.</p>
+        <a class="btn primary" href="https://github.com/Balls0fSteel/dc1996-Nagsworth/releases">Releases</a>
+      </div>
+      <div class="card">
+        <h3>Build from source</h3>
+        <p>Needs Rust 1.90+, Node 20.19+ and, on Windows, WebView2.</p>
+<pre class="code small"><code>git clone https://github.com/Balls0fSteel/dc1996-Nagsworth
+cd dc1996-Nagsworth
+npm install
+npm --prefix ui install
+npm --prefix extension install
+npm run tauri dev</code></pre>
+        <p class="note">More in the <a href="https://github.com/Balls0fSteel/dc1996-Nagsworth#readme">README</a>,
+          <a href="https://github.com/Balls0fSteel/dc1996-Nagsworth/blob/main/docs/ARCHITECTURE.md">architecture notes</a> and
+          <a href="https://github.com/Balls0fSteel/dc1996-Nagsworth/blob/main/docs/EXERCISES.md">break exercises</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap two-col">
+    <div>
+      <h2>License</h2>
+      <p class="sub">Source-available under PolyForm Noncommercial 1.0.0.</p>
+    </div>
+    <div>
+      <p>Use, study, change and share Nagsworth for personal, hobby, research, educational
+        and non-profit purposes. Commercial use (selling it, bundling it into a product,
+        offering it as a paid service, using it in a business) needs a separate license
+        from the author.</p>
+      <p><a href="https://github.com/Balls0fSteel/dc1996-Nagsworth/blob/main/LICENSE.md">Read the license</a></p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>Required Notice: Copyright 2026 TheDuke (<a href="https://github.com/Balls0fSteel/dc1996-Nagsworth">github.com/Balls0fSteel/dc1996-Nagsworth</a>)</span>
+    <span><a href="https://github.com/Balls0fSteel/dc1996-Nagsworth/issues">Issues</a> &middot; <a href="https://github.com/Balls0fSteel/dc1996-Nagsworth/blob/main/CHANGELOG.md">Changelog</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -2,6 +2,17 @@
 
 Timestamps: `YYYY-MM-DD_HHMMSS_<unix epoch>` (Europe/Budapest). Current work: [PLAN.md](PLAN.md).
 
+## 2026-11-06_082008_1793949608: Project website for GitHub Pages
+
+- `site/`: a static, dependency-free page (hero with an illustrative toast
+  and limit bars, features, escalation ladder with a rule example, privacy,
+  platforms, getting it, license and the Required Notice), light and dark
+  via `prefers-color-scheme`, checked at desktop and phone width.
+- `.github/workflows/pages.yml` deploys `site/` with
+  `actions/deploy-pages`; the Pages source has to be "GitHub Actions"
+  (it was the legacy build from `main` `/`, which rendered the README).
+- No screenshots yet: the hero card is an HTML illustration, not a capture.
+
 ## 2026-11-05_092738_1793870858: Headless phase 2: nag board and API, the GUI as a client
 
 - `ns_core::view`: `NagView`, `NagsView`, `UpdateStatus` (+ views),

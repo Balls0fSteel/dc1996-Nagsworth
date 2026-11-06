@@ -384,6 +384,17 @@ exercises"). Open (docs/EXERCISES.md): audio cues, completion tracking on
 History, the band tier default, habits like drinking water; the user
 catalogue file is read at start only.
 
+## Project website (2026-11-06_082008_1793949608)
+
+A static one-page site in `site/` (`index.html`, `style.css`, icons,
+`.nojekyll`), published by `.github/workflows/pages.yml` to
+https://balls0fsteel.github.io/dc1996-Nagsworth/ on pushes to `main` that
+touch `site/`. Needs the repository's Pages source switched from the legacy
+branch build (main, `/`) to "GitHub Actions". TODO: real screenshots of the
+dashboard, toast and overlay (seeded demo data, `tools/seed_demo.py`); point
+the Download button at the first release once there is one; set the repo's
+homepage URL to the site.
+
 ## Next steps
 
 0. Run the checks in docs/MANUAL_CHECKS.md, first "Break exercises" and
